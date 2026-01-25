@@ -9,7 +9,7 @@ export enum MissionStatus {
   OPEN = 'OPEN',
   ACCEPTED = 'ACCEPTED',
   IN_PROGRESS = 'IN_PROGRESS',
-  SUBMITTED = 'SUBMITTED', // Waiting for verification
+  VERIFYING = 'VERIFYING', // New state for AI/Community verification
   VERIFIED = 'VERIFIED',
   CLOSED = 'CLOSED',
 }
@@ -25,6 +25,7 @@ export interface User {
   name: string;
   avatarUrl: string;
   trustScore: number; // 0 - 100
+  impactCredits: number; // Impact Wallet
   role: UserRole;
   badges: string[];
 }
@@ -41,6 +42,18 @@ export interface Mission {
   urgency: 'LOW' | 'MEDIUM' | 'HIGH';
   timeEstimate: string; // e.g., "15 min"
   
+  // Squad Mode
+  squadSize?: number;
+  currentSquad?: number;
+
+  // Proof of Completion (The Core Differentiator)
+  proof?: {
+    imageUrl?: string;
+    verifiedAt?: string;
+    checklistCompleted?: boolean;
+    aiVerificationNote?: string;
+  };
+
   // Lane specific optional data
   foodData?: {
     allergens: string[];
@@ -56,7 +69,8 @@ export interface Mission {
   };
   skillData?: {
     moduleName: string;
-    prerequisite?: string;
+    contextTrigger?: string; // What triggered this lesson?
+    arOverlay?: boolean;
   };
 }
 

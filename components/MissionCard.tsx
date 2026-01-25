@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mission, MissionType } from '../types';
-import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle, Users } from 'lucide-react';
 
 interface MissionCardProps {
   mission: Mission;
@@ -57,6 +57,13 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
           <span className={`text-xs font-bold uppercase tracking-wider ${theme.text}`}>
             {mission.type.replace('_', ' ')}
           </span>
+          {/* Squad Badge */}
+          {mission.squadSize && mission.squadSize > 1 && (
+              <div className="flex items-center gap-1 bg-violet-100 text-violet-700 px-2 py-1 rounded-full text-[10px] font-bold border border-violet-200">
+                  <Users className="w-3 h-3" />
+                  <span>SQUAD</span>
+              </div>
+          )}
         </div>
         <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-full shadow-sm border border-slate-100">
           <Zap className="w-3 h-3 text-amber-500 fill-current" />
@@ -79,6 +86,12 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
                 <Clock className="w-3 h-3" />
                 {mission.timeEstimate}
             </span>
+             {mission.squadSize && (
+                <span className="flex items-center gap-1 text-slate-600 font-medium">
+                    <Users className="w-3 h-3" />
+                    {mission.currentSquad}/{mission.squadSize}
+                </span>
+            )}
         </div>
         {mission.urgency === 'HIGH' && (
             <span className="flex items-center gap-1 text-red-600 font-medium animate-pulse">

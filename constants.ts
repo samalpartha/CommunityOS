@@ -5,6 +5,7 @@ export const CURRENT_USER: User = {
   name: 'Alex Rivera',
   avatarUrl: 'https://picsum.photos/id/64/200/200',
   trustScore: 85,
+  impactCredits: 1250,
   role: UserRole.VERIFIED_VOLUNTEER,
   badges: ['Early Adopter', 'Fixer', 'Good Listener']
 };
@@ -24,6 +25,24 @@ export const INITIAL_MISSIONS: Mission[] = [
     fixData: {
       severity: 'Medium',
       imageUrl: 'https://picsum.photos/id/212/800/600'
+    }
+  },
+  {
+    id: 'm5',
+    type: MissionType.FIX_BOUNTY,
+    title: 'Community Garden Cleanup',
+    description: 'Heavy lifting required to clear storm debris from the walkway.',
+    location: 'Central Park',
+    distance: '0.3 mi',
+    reward: 150,
+    status: MissionStatus.OPEN,
+    urgency: 'MEDIUM',
+    timeEstimate: '45 min',
+    squadSize: 3,
+    currentSquad: 1,
+    fixData: {
+      severity: 'Medium',
+      imageUrl: 'https://picsum.photos/id/118/800/600'
     }
   },
   {
@@ -62,7 +81,7 @@ export const INITIAL_MISSIONS: Mission[] = [
     id: 'm4',
     type: MissionType.LIFE_SKILL,
     title: 'Safe Lifting Tech',
-    description: 'Learn how to lift heavy boxes safely before your next delivery.',
+    description: 'Learn how to lift heavy boxes safely using AR overlay.',
     location: 'Digital',
     distance: 'N/A',
     reward: 20,
@@ -70,7 +89,8 @@ export const INITIAL_MISSIONS: Mission[] = [
     urgency: 'LOW',
     timeEstimate: '3 min',
     skillData: {
-      moduleName: 'Ergonomics 101'
+      moduleName: 'Ergonomics 101',
+      arOverlay: true
     }
   }
 ];
