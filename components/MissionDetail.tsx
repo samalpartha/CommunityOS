@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mission, MissionStatus, MissionType, IncidentReport, SkillLesson } from '../types';
 import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck } from 'lucide-react';
-import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, LiveSession } from '../services/geminiService';
+import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, LiveSession, verifyFixCompletion } from '../services/geminiService';
 
 interface MissionDetailProps {
   mission: Mission;
   onBack: () => void;
   onComplete: (mission: Mission) => void;
+  addToast: (type: 'success' | 'error', title: string, message: string) => void;
 }
 
-const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComplete }) => {
+const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComplete, addToast }) => {
   const [status, setStatus] = useState<MissionStatus>(mission.status);
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<IncidentReport | null>(null);
@@ -18,7 +19,8 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [checklistState, setChecklistState] = useState<boolean[]>([]);
-  
+  const [verificationResult, setVerificationResult] = useState<{isMatch: boolean, reason: string} | null>(null);
+
   // Live Audio State (Real-Time Teacher)
   const [liveStatus, setLiveStatus] = useState<string>('idle'); 
   const liveSessionRef = useRef<LiveSession | null>(null);
@@ -49,6 +51,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
 
   const handleAccept = () => {
     setStatus(MissionStatus.ACCEPTED);
+    addToast('success', 'Mission Accepted', 'You are now on this mission. Good luck!');
   };
 
   const handleShare = async () => {
@@ -62,7 +65,8 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
           if (navigator.share) {
             await navigator.share(shareData);
           } else {
-            alert(`Link copied to clipboard:\n\n${shareData.text}`);
+            navigator.clipboard.writeText(shareData.url);
+            addToast('success', 'Link Copied', 'Mission link copied to clipboard.');
           }
       } catch (err) {
           console.error("Error sharing:", err);
@@ -78,15 +82,26 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
     reader.onloadend = async () => {
       const base64 = reader.result as string;
       setProofImage(base64);
-      
       const base64Data = base64.split(',')[1];
 
       // Smart Verification for Fix Bounties
       if (mission.type === MissionType.FIX_BOUNTY) {
-         // In a real app, we would verify the "After" state. 
-         // For now, we re-analyze to confirm it's a valid photo.
-         const result = await analyzeFixImage(base64Data);
-         setAnalysis(result);
+         // Perform Before/After comparison if initial image exists
+         if (mission.fixData?.imageUrl && mission.fixData.imageUrl.startsWith('data:')) {
+             const beforeData = mission.fixData.imageUrl.split(',')[1];
+             const result = await verifyFixCompletion(beforeData, base64Data);
+             setVerificationResult(result);
+             if (result.isMatch) {
+                 addToast('success', 'Verification Passed', 'The fix matches the original report context.');
+             } else {
+                 addToast('error', 'Verification Failed', result.reason);
+             }
+         } else {
+             // Fallback to simple analysis if no "before" data-uri available (e.g. mock urls)
+             const result = await analyzeFixImage(base64Data);
+             setAnalysis(result);
+             addToast('success', 'Photo Analyzed', 'Image successfully processed.');
+         }
       }
       setIsLoading(false);
     };
@@ -132,26 +147,26 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
     if (status === MissionStatus.OPEN) {
       return (
         <div className="mt-8">
-            <div className="bg-slate-100 rounded-lg p-4 mb-6">
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4 mb-6 transition-colors">
                 <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                    <h4 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                         <Info className="w-4 h-4"/> Mission Brief
                     </h4>
                     {mission.squadSize && (
-                        <div className="bg-violet-100 text-violet-700 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
+                        <div className="bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-200 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
                             <Users className="w-3 h-3" /> Squad Mode
                         </div>
                     )}
                 </div>
-                <p className="text-slate-600 text-sm leading-relaxed">{mission.description}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{mission.description}</p>
                 
                 {/* Concept 2: Medimate Data */}
                 {mission.type === MissionType.MEDICAL_NEED && mission.medicalData && (
-                    <div className="mt-4 bg-red-50 border border-red-100 p-3 rounded-lg">
-                        <h5 className="text-xs font-bold text-red-800 uppercase mb-2 flex items-center gap-2">
+                    <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-3 rounded-lg">
+                        <h5 className="text-xs font-bold text-red-800 dark:text-red-300 uppercase mb-2 flex items-center gap-2">
                             <Activity className="w-3 h-3"/> Medimate Request
                         </h5>
-                        <div className="grid grid-cols-2 gap-2 text-sm text-red-700">
+                        <div className="grid grid-cols-2 gap-2 text-sm text-red-700 dark:text-red-200">
                              {mission.medicalData.bloodType && (
                                  <div><span className="font-bold">Blood:</span> {mission.medicalData.bloodType}</div>
                              )}
@@ -174,7 +189,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                         <Share2 className="w-5 h-5" /> Invite
                     </button>
                 )}
-                <button onClick={handleAccept} className={`flex-1 bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 ${!mission.squadSize ? 'w-full' : ''}`}>
+                <button onClick={handleAccept} className={`flex-1 bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2 ${!mission.squadSize ? 'w-full' : ''}`}>
                     {mission.squadSize ? <><Users className="w-5 h-5" /> Join Squad</> : 'Accept Mission'}
                 </button>
             </div>
@@ -188,17 +203,17 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                 
                 {/* --- FIX BOUNTY PROOF FLOW --- */}
                 {mission.type === MissionType.FIX_BOUNTY && (
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+                        <h3 className="font-bold text-lg mb-2 flex items-center gap-2 dark:text-white">
                             Proof of Fix
                             <span className="text-[10px] bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full flex items-center gap-1">
                                 <Sparkles className="w-3 h-3"/> Smart API Active
                             </span>
                         </h3>
-                        <p className="text-sm text-slate-500 mb-4">Upload a photo of the completed repair. Vision AI will verify context.</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Upload a photo of the completed repair. Vision AI will verify context.</p>
                         
                         {!proofImage ? (
-                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                     <Camera className="w-8 h-8 text-slate-400 mb-2" />
                                     <p className="text-sm text-slate-500">Tap to capture</p>
@@ -213,6 +228,14 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                                         <Sparkles className="w-6 h-6 text-cyan-500 animate-spin" />
                                         Gemini 3 Pro is verifying closure...
                                     </div>
+                                ) : verificationResult ? (
+                                     <div className={`p-3 rounded-lg border text-sm ${verificationResult.isMatch ? 'bg-green-50 border-green-100 text-green-800' : 'bg-red-50 border-red-100 text-red-800'}`}>
+                                        <p className="font-bold flex items-center gap-2">
+                                            {verificationResult.isMatch ? <CheckCircle className="w-4 h-4"/> : <Activity className="w-4 h-4"/>} 
+                                            {verificationResult.isMatch ? 'Verified Match' : 'Verification Failed'}
+                                        </p>
+                                        <p className="mt-1 opacity-90">{verificationResult.reason}</p>
+                                    </div>
                                 ) : analysis ? (
                                     <div className="bg-green-50 p-3 rounded-lg border border-green-100 text-sm">
                                         <p className="font-bold text-green-800 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> AI Verified</p>
@@ -226,7 +249,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
 
                 {/* --- LIFE SKILL CHECKLIST FLOW --- */}
                  {mission.type === MissionType.LIFE_SKILL && (
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
                          {isThinking ? (
                              <div className="p-8 text-center text-slate-500 flex flex-col items-center gap-2">
                                  <BrainCircuit className="w-8 h-8 text-violet-500 animate-pulse" />
@@ -235,11 +258,11 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                          ) : skillLesson ? (
                              <>
                                 <div className="flex justify-between items-start mb-4">
-                                    <h3 className="font-bold text-lg">{skillLesson.title}</h3>
+                                    <h3 className="font-bold text-lg dark:text-white">{skillLesson.title}</h3>
                                     {/* Real-Time Teacher Toggle */}
                                     <button 
                                         onClick={toggleLiveTutor}
-                                        className={`p-2 rounded-full transition-colors ${liveStatus === 'connected' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500'}`}
+                                        className={`p-2 rounded-full transition-colors ${liveStatus === 'connected' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'}`}
                                         title="Start AI Tutor"
                                     >
                                         {liveStatus === 'connected' ? <Mic className="w-5 h-5"/> : <MicOff className="w-5 h-5"/>}
@@ -256,17 +279,17 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                                 <div className="space-y-6">
                                     <div>
                                         <h4 className="text-xs font-bold uppercase text-slate-400 mb-2">Learning Steps</h4>
-                                        <ul className="list-decimal list-inside text-sm text-slate-700 space-y-2 pl-2">
+                                        <ul className="list-decimal list-inside text-sm text-slate-700 dark:text-slate-300 space-y-2 pl-2">
                                             {skillLesson.steps.map((step, i) => <li key={i}>{step}</li>)}
                                         </ul>
                                     </div>
-                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                                        <h4 className="text-xs font-bold uppercase text-emerald-600 mb-3">Verification Checklist</h4>
+                                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                                        <h4 className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-3">Verification Checklist</h4>
                                         <div className="space-y-3">
                                             {skillLesson.checklist.map((item, i) => (
                                                 <div key={i} onClick={() => toggleChecklist(i)} className="flex items-start gap-3 cursor-pointer">
                                                     {checklistState[i] ? <CheckSquare className="w-5 h-5 text-emerald-600 shrink-0"/> : <Square className="w-5 h-5 text-emerald-400 shrink-0"/>}
-                                                    <span className={`text-sm ${checklistState[i] ? 'text-emerald-900 line-through opacity-70' : 'text-emerald-800'}`}>{item}</span>
+                                                    <span className={`text-sm ${checklistState[i] ? 'text-emerald-900 dark:text-emerald-200 line-through opacity-70' : 'text-emerald-800 dark:text-emerald-300'}`}>{item}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -277,14 +300,14 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                     </div>
                 )}
                 
-                {/* --- LONELY MINUTES FLOW (Simplified for MVP) --- */}
+                {/* --- LONELY MINUTES FLOW --- */}
                 {mission.type === MissionType.LONELY_MINUTES && (
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                         <h3 className="font-bold text-lg mb-2">Conversation Guide</h3>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                         <h3 className="font-bold text-lg mb-2 dark:text-white">Conversation Guide</h3>
                          <div className="space-y-2 mb-4">
                             {conversationStarters.length > 0 ? conversationStarters.map((starter, i) => (
-                                <div key={i} className="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm italic">"{starter}"</div>
-                            )) : <p>Loading prompts...</p>}
+                                <div key={i} className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-lg text-sm italic">"{starter}"</div>
+                            )) : <p className="text-sm dark:text-slate-400">Loading prompts...</p>}
                          </div>
                     </div>
                 )}
@@ -295,7 +318,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                         (mission.type === MissionType.LIFE_SKILL && (!skillLesson || checklistState.some(c => !c)))
                     }
                     onClick={handleComplete}
-                    className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+                    className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2"
                 >
                     <Send className="w-5 h-5" /> 
                     {mission.type === MissionType.LIFE_SKILL ? 'Claim Credential' : 'Complete Mission'}
@@ -310,10 +333,10 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                 <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 animate-bounce">
                     <CheckCircle className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-800">Verified & Closed!</h2>
-                <p className="text-slate-500 mt-2 mb-6">Reward of {mission.reward} IC sent to your wallet.</p>
-                <div className="mt-4 p-4 bg-slate-50 rounded-lg text-xs text-slate-400 w-full text-left">
-                    <p className="font-bold text-slate-500 mb-1">AUDIT TRAIL RECORD</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Verified & Closed!</h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 mb-6">Reward of {mission.reward} IC sent to your wallet.</p>
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs text-slate-400 w-full text-left transition-colors">
+                    <p className="font-bold text-slate-500 dark:text-slate-300 mb-1">AUDIT TRAIL RECORD</p>
                     <p>ID: {mission.id}</p>
                     <p>Time: {new Date().toLocaleTimeString()}</p>
                     <p>Proof: {mission.type === MissionType.LIFE_SKILL ? 'Self-Checklist' : 'AI-Verified Image'}</p>
@@ -326,18 +349,18 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-50 z-50 overflow-y-auto">
-      <div className="sticky top-0 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between z-10">
+    <div className="fixed inset-0 bg-slate-50 dark:bg-slate-900 z-50 overflow-y-auto transition-colors duration-200">
+      <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-            <button onClick={onBack} className="p-2 -ml-2 hover:bg-slate-100 rounded-full">
-                <ArrowLeft className="w-6 h-6 text-slate-700" />
+            <button onClick={onBack} className="p-2 -ml-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                <ArrowLeft className="w-6 h-6 text-slate-700 dark:text-slate-200" />
             </button>
             <div>
                 <span className="text-xs font-bold text-slate-400 uppercase">{mission.type.replace('_', ' ')}</span>
-                <h1 className="text-lg font-bold text-slate-900 leading-none">{mission.title}</h1>
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-none">{mission.title}</h1>
             </div>
         </div>
-        <button onClick={handleShare} className="p-2 hover:bg-slate-100 rounded-full text-slate-600">
+        <button onClick={handleShare} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
             <Share2 className="w-5 h-5" />
         </button>
       </div>

@@ -10,12 +10,14 @@ import LoginScreen from './components/LoginScreen';
 import CreativeStudio from './components/CreativeStudio';
 import Toast, { ToastMessage } from './components/Toast';
 import HelpModal from './components/HelpModal';
+import { MissionCardSkeleton } from './components/Skeleton';
 import { generateLifeSkillLesson, LiveSession, decomposeComplexProject } from './services/geminiService';
-import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit } from 'lucide-react';
+import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit, Moon, Sun, Award } from 'lucide-react';
 
 const App: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoadingMissions, setIsLoadingMissions] = useState(false);
   
   const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
   const [activeTab, setActiveTab] = useState<'HOME' | 'LEADERBOARD' | 'PROFILE' | 'CREATIVE'>('HOME');
@@ -27,6 +29,7 @@ const App: React.FC = () => {
   const [isMeshMode, setIsMeshMode] = useState(false);
   const [user, setUser] = useState(CURRENT_USER);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Strategic Track: Marathon Agent
   const [isPlanning, setIsPlanning] = useState(false);
@@ -34,6 +37,51 @@ const App: React.FC = () => {
   // Strategic Track: Voice Mode (Blind Support / Teacher)
   const [voiceMode, setVoiceMode] = useState<'OFF' | 'ACTIVE'>('OFF');
   const liveSessionRef = useRef<LiveSession | null>(null);
+
+  // Initialize Dark Mode Class
+  useEffect(() => {
+      if (darkMode) {
+          document.documentElement.classList.add('dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+      }
+  }, [darkMode]);
+
+  // Simulate Initial Loading (Skeleton Demo)
+  useEffect(() => {
+      if(isAuthenticated) {
+          setIsLoadingMissions(true);
+          setTimeout(() => setIsLoadingMissions(false), 2000);
+      }
+  }, [isAuthenticated]);
+
+  // Simulate Real-Time Mission Updates (Live Dashboard)
+  useEffect(() => {
+      if (!isAuthenticated) return;
+
+      const timer = setTimeout(() => {
+          const newMission: Mission = {
+              id: `rt-${Date.now()}`,
+              type: MissionType.MEDICAL_NEED,
+              title: 'Urgent: Insulin Pickup',
+              description: 'Elderly resident needs prescription pickup from CVS. Cannot drive due to vision.',
+              location: 'Sunset Blvd',
+              distance: '0.5 mi',
+              reward: 200,
+              status: MissionStatus.OPEN,
+              urgency: 'HIGH',
+              timeEstimate: '20 min',
+              medicalData: {
+                  medication: 'Insulin (Refrigerated)',
+                  isUrgentTransport: true
+              }
+          };
+          setMissions(prev => [newMission, ...prev]);
+          addToast('success', 'New Alert', 'Urgent Medical Mission added nearby!');
+      }, 10000); // Trigger after 10s
+
+      return () => clearTimeout(timer);
+  }, [isAuthenticated]);
 
   // Toast Helper
   const addToast = (type: 'success' | 'error', title: string, message: string) => {
@@ -122,10 +170,6 @@ const App: React.FC = () => {
 
       setSelectedMission(null);
       addToast('success', 'Mission Verified!', `You earned ${xpGained} Impact Credits & 5 Trust Points.`);
-
-      if (completedMission.type === MissionType.FIX_BOUNTY) {
-          // ... Existing skill logic ...
-      }
   };
 
   const handleReportSubmit = (newMission: Mission) => {
@@ -141,7 +185,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row md:max-w-4xl md:mx-auto md:shadow-2xl md:min-h-0 md:h-[90vh] md:mt-[5vh] md:rounded-3xl overflow-hidden font-sans relative">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row md:max-w-4xl md:mx-auto md:shadow-2xl md:min-h-0 md:h-[90vh] md:mt-[5vh] md:rounded-3xl overflow-hidden font-sans relative transition-colors duration-200">
       
       {/* Toast Container */}
       <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none md:absolute md:top-6 md:right-6">
@@ -163,7 +207,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-white p-6 shrink-0">
+      <nav className="hidden md:flex flex-col w-64 bg-slate-900 dark:bg-slate-950 text-white p-6 shrink-0 transition-colors">
         <h1 className="text-2xl font-bold tracking-tight mb-8">Community Hero</h1>
         <div className="space-y-4">
             <button onClick={() => setActiveTab('HOME')} className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors ${activeTab === 'HOME' ? 'bg-indigo-600 shadow-lg' : 'hover:bg-slate-800'}`}>
@@ -198,6 +242,9 @@ const App: React.FC = () => {
 
         <div className="mt-auto pt-6 border-t border-slate-800">
              <div className="mb-4 space-y-2">
+                 <button onClick={() => setDarkMode(!darkMode)} className="flex items-center gap-3 w-full p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium">
+                     {darkMode ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>} {darkMode ? 'Light Mode' : 'Dark Mode'}
+                 </button>
                  <button 
                     onClick={() => setShowHelp(true)}
                     className="flex items-center gap-3 w-full p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium"
@@ -222,14 +269,14 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen md:h-full relative overflow-hidden bg-slate-50">
+      <main className="flex-1 flex flex-col h-screen md:h-full relative overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors">
         
         {/* Mobile Header */}
-        <header className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-10 shrink-0">
-             <h1 className="text-xl font-bold text-slate-900">Community Hero</h1>
+        <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center sticky top-0 z-10 shrink-0">
+             <h1 className="text-xl font-bold text-slate-900 dark:text-white">Community Hero</h1>
              <div className="flex items-center gap-2">
-                 <div className="bg-slate-100 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                     <ShieldCheck className="w-3 h-3 text-green-600"/> {user.trustScore}
+                 <div className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                     <ShieldCheck className="w-3 h-3 text-green-600"/> <span className="dark:text-white">{user.trustScore}</span>
                  </div>
                  <button onClick={() => setActiveTab('PROFILE')}>
                      <img src={user.avatarUrl} className="w-8 h-8 rounded-full" />
@@ -248,20 +295,20 @@ const App: React.FC = () => {
              <div className="flex-1 flex flex-col relative overflow-hidden">
                  
                  {/* Filters & View Toggle */}
-                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm shrink-0 z-10">
+                 <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm shrink-0 z-10 transition-colors">
                     <div className="flex items-center justify-between gap-4">
                         <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
-                            <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>All</button>
+                            <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === 'ALL' ? 'bg-slate-900 text-white dark:bg-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>All</button>
                             {/* Concept 2: Medimate */}
-                            <button onClick={() => setFilter(MissionType.MEDICAL_NEED)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.MEDICAL_NEED ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'}`}>Medimate</button>
-                            <button onClick={() => setFilter(MissionType.FIX_BOUNTY)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FIX_BOUNTY ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-100 text-slate-600'}`}>Fixes</button>
-                            <button onClick={() => setFilter(MissionType.FOOD_FIT)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FOOD_FIT ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'}`}>Food</button>
+                            <button onClick={() => setFilter(MissionType.MEDICAL_NEED)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.MEDICAL_NEED ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>Medimate</button>
+                            <button onClick={() => setFilter(MissionType.FIX_BOUNTY)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FIX_BOUNTY ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>Fixes</button>
+                            <button onClick={() => setFilter(MissionType.FOOD_FIT)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FOOD_FIT ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>Food</button>
                         </div>
-                        <div className="flex bg-slate-100 rounded-lg p-1 shrink-0">
-                            <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-md transition-all ${viewMode === 'LIST' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                        <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 shrink-0">
+                            <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-md transition-all ${viewMode === 'LIST' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                                 <List className="w-4 h-4"/>
                             </button>
-                            <button onClick={() => setViewMode('MAP')} className={`p-2 rounded-md transition-all ${viewMode === 'MAP' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                            <button onClick={() => setViewMode('MAP')} className={`p-2 rounded-md transition-all ${viewMode === 'MAP' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                                 <MapIcon className="w-4 h-4"/>
                             </button>
                         </div>
@@ -288,18 +335,29 @@ const App: React.FC = () => {
                                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nearby Missions</h2>
                                 <span className="text-xs text-slate-400">{filteredMissions.length} active</span>
                             </div>
-                            {filteredMissions.map(m => (
-                                <MissionCard key={m.id} mission={m} onClick={setSelectedMission} />
-                            ))}
-                            {filteredMissions.length === 0 && (
-                                <div className="text-center py-12 text-slate-400">
-                                    <p>No missions found in this filter.</p>
-                                </div>
+
+                            {isLoadingMissions ? (
+                                <>
+                                    <MissionCardSkeleton />
+                                    <MissionCardSkeleton />
+                                    <MissionCardSkeleton />
+                                </>
+                            ) : (
+                                <>
+                                    {filteredMissions.map(m => (
+                                        <MissionCard key={m.id} mission={m} onClick={setSelectedMission} />
+                                    ))}
+                                    {filteredMissions.length === 0 && (
+                                        <div className="text-center py-12 text-slate-400">
+                                            <p>No missions found in this filter.</p>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                      ) : (
                          <div className="w-full h-full relative">
-                             <div className="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-2 border border-slate-200">
+                             <div className="absolute top-4 left-4 z-[400] bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-2 border border-slate-200 dark:border-slate-700 dark:text-white">
                                 <MapIcon className="w-3 h-3 text-blue-500"/> Live Community Map
                             </div>
                              <MapView missions={filteredMissions} resources={INITIAL_RESOURCES} onMissionClick={setSelectedMission} />
@@ -323,25 +381,40 @@ const App: React.FC = () => {
                      </button>
                 </div>
 
-                <h2 className="text-2xl font-bold mb-6">Profile</h2>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center mb-6">
-                    <img src={user.avatarUrl} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50" />
-                    <h3 className="text-xl font-bold">{user.name}</h3>
-                    <p className="text-slate-500 mb-4">{user.role.replace('_', ' ')}</p>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold dark:text-white">Profile</h2>
+                    <button onClick={() => setDarkMode(!darkMode)} className="md:hidden p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {darkMode ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+                    </button>
+                </div>
+
+                {/* Enhanced Gamification Profile */}
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-center mb-6 transition-colors">
+                    <img src={user.avatarUrl} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50 dark:border-slate-700" />
+                    <h3 className="text-xl font-bold dark:text-white">{user.name}</h3>
+                    <p className="text-slate-500 dark:text-slate-400 mb-4">{user.role.replace('_', ' ')}</p>
                     
-                    <div className="flex justify-center gap-8 border-t border-slate-100 pt-4">
+                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 mb-2 overflow-hidden">
+                         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full" style={{ width: '70%' }}></div>
+                    </div>
+                    <p className="text-xs text-slate-400 mb-6 flex justify-between">
+                        <span>Level 5</span>
+                        <span>700 / 1000 XP to Level 6</span>
+                    </p>
+
+                    <div className="flex justify-center gap-8 border-t border-slate-100 dark:border-slate-700 pt-4">
                         <div>
-                            <p className="text-3xl font-black text-slate-900">{user.trustScore}</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white">{user.trustScore}</p>
                             <p className="text-xs text-slate-400 uppercase tracking-widest">Trust Score</p>
                         </div>
                         <div>
-                            <p className="text-3xl font-black text-slate-900">12</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white">{missions.filter(m => m.status === MissionStatus.VERIFIED).length + 12}</p>
                             <p className="text-xs text-slate-400 uppercase tracking-widest">Missions</p>
                         </div>
                     </div>
                 </div>
 
-                <h3 className="font-bold mb-3 flex items-center gap-2"><Wallet className="w-5 h-5 text-indigo-600"/> Impact Wallet</h3>
+                <h3 className="font-bold mb-3 flex items-center gap-2 dark:text-white"><Wallet className="w-5 h-5 text-indigo-600"/> Impact Wallet</h3>
                 <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg mb-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
                     <div className="relative z-10">
@@ -355,18 +428,23 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 
-                <h3 className="font-bold mb-3">Badges</h3>
+                <h3 className="font-bold mb-3 dark:text-white">Badges</h3>
                 <div className="flex flex-wrap gap-2 mb-6">
                     {user.badges.map(b => (
-                        <span key={b} className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-sm font-medium">{b}</span>
+                        <span key={b} className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1">
+                             <Award className="w-3 h-3 text-yellow-500"/> {b}
+                        </span>
                     ))}
+                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 px-3 py-1 rounded-lg text-sm font-medium border border-dashed border-slate-300 dark:border-slate-600 opacity-70">
+                        Pothole Patroller (Locked)
+                    </span>
                     <button className="bg-violet-50 text-violet-600 px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1 border border-violet-100 border-dashed">
                         <Plus className="w-3 h-3"/> Earn More
                     </button>
                 </div>
                 
                 <div className="md:hidden mt-8">
-                     <button onClick={() => setShowHelp(true)} className="w-full flex items-center justify-center gap-2 p-4 bg-slate-100 rounded-xl font-bold text-slate-600">
+                     <button onClick={() => setShowHelp(true)} className="w-full flex items-center justify-center gap-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300 transition-colors">
                          <HelpCircle className="w-5 h-5" /> Help & Support
                      </button>
                 </div>
@@ -378,7 +456,7 @@ const App: React.FC = () => {
             <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-20">
                 <button 
                     onClick={() => setIsCreatingReport(true)}
-                    className="bg-black text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
+                    className="bg-black dark:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
                 >
                     <Plus className="w-6 h-6" />
                 </button>
@@ -386,16 +464,16 @@ const App: React.FC = () => {
         )}
 
         {/* Mobile Bottom Nav */}
-        <div className="md:hidden border-t border-slate-200 bg-white flex justify-around p-3 pb-6 shrink-0 z-20">
-             <button onClick={() => setActiveTab('HOME')} className={`flex flex-col items-center gap-1 ${activeTab === 'HOME' ? 'text-slate-900' : 'text-slate-400'}`}>
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-around p-3 pb-6 shrink-0 z-20 transition-colors">
+             <button onClick={() => setActiveTab('HOME')} className={`flex flex-col items-center gap-1 ${activeTab === 'HOME' ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                  <Home className="w-6 h-6" />
                  <span className="text-[10px] font-bold">Missions</span>
              </button>
-             <button onClick={() => setActiveTab('LEADERBOARD')} className={`flex flex-col items-center gap-1 ${activeTab === 'LEADERBOARD' ? 'text-slate-900' : 'text-slate-400'}`}>
+             <button onClick={() => setActiveTab('LEADERBOARD')} className={`flex flex-col items-center gap-1 ${activeTab === 'LEADERBOARD' ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                  <Trophy className="w-6 h-6" />
                  <span className="text-[10px] font-bold">Impact</span>
              </button>
-             <button onClick={() => setActiveTab('PROFILE')} className={`flex flex-col items-center gap-1 ${activeTab === 'PROFILE' ? 'text-slate-900' : 'text-slate-400'}`}>
+             <button onClick={() => setActiveTab('PROFILE')} className={`flex flex-col items-center gap-1 ${activeTab === 'PROFILE' ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                  <User className="w-6 h-6" />
                  <span className="text-[10px] font-bold">Profile</span>
              </button>
@@ -409,6 +487,7 @@ const App: React.FC = () => {
             mission={selectedMission} 
             onBack={() => setSelectedMission(null)} 
             onComplete={handleMissionComplete}
+            addToast={addToast}
           />
       )}
 

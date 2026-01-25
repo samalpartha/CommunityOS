@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Mission, MissionType, CommunityResource, ResourceType } from '../types';
 import { MOCK_GEO_COORDS } from '../constants';
-import { Activity, Layers } from 'lucide-react';
+import { Activity, Layers, Navigation } from 'lucide-react';
 
 interface MapViewProps {
   missions: Mission[];
@@ -50,6 +50,10 @@ const MapView: React.FC<MapViewProps> = ({ missions, resources, onMissionClick }
         mapRef.current = null;
     };
   }, []);
+
+  const handleCenterOnMe = () => {
+      mapRef.current?.setView([MOCK_GEO_COORDS.latitude, MOCK_GEO_COORDS.longitude], 16);
+  };
 
   // Update Markers when missions or resources change
   useEffect(() => {
@@ -158,8 +162,16 @@ const MapView: React.FC<MapViewProps> = ({ missions, resources, onMissionClick }
     <div className="relative w-full h-full">
         <div ref={containerRef} className="w-full h-full bg-slate-100 z-0" />
         
-        {/* Concept 8: Pulse Toggle */}
+        {/* Concept 8: Pulse Toggle & Controls */}
         <div className="absolute bottom-6 left-6 z-[600] flex flex-col gap-2">
+             <button 
+                onClick={handleCenterOnMe}
+                className="bg-white text-slate-700 w-10 h-10 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 mb-2"
+                title="Follow Me"
+             >
+                <Navigation className="w-5 h-5 text-blue-600" />
+             </button>
+
              <button 
                 onClick={() => setShowPulse(!showPulse)}
                 className={`px-4 py-2 rounded-full font-bold shadow-lg flex items-center gap-2 text-xs transition-all ${showPulse ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700'}`}
