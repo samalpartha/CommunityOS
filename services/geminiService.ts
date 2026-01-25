@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, LiveServerMessage, Modality } from "@google/genai";
-import { IncidentReport, SkillLesson } from "../types";
+import { IncidentReport, SkillLesson, Mission } from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -13,7 +13,7 @@ export const analyzeFixImage = async (base64Image: string): Promise<IncidentRepo
     const modelId = "gemini-3-pro-preview"; 
 
     const prompt = `
-      Analyze this image for a civic maintenance report. 
+      Analyze this image for a civic maintenance report or hazard. 
       Identify the main issue (e.g., Pothole, Graffiti, Broken Light, Trash).
       Assess the severity (Low, Medium, High, Critical).
       Provide a brief 1-sentence description.
@@ -57,26 +57,107 @@ export const analyzeFixImage = async (base64Image: string): Promise<IncidentRepo
 };
 
 /**
- * FEATURE: Think more when needed - Life Skills
+ * STRATEGIC TRACK: The Marathon Agent
  * Model: gemini-3-pro-preview
- * Use Case: Generating safe, structured life skill lessons triggered by real events.
+ * Logic: Breaks a complex community goal into sub-missions (Thought Signatures)
  */
-export const generateLifeSkillLesson = async (context: string): Promise<SkillLesson> => {
+export const decomposeComplexProject = async (goal: string): Promise<any[]> => {
     try {
         const modelId = "gemini-3-pro-preview";
-
+        
         const prompt = `
-            Create a micro-learning lesson for a community volunteer app triggered by the user fixing: "${context}".
-            Title: A catchy title about mastering this skill (e.g., "Electrical Safety 101" if context is Broken Light).
-            Steps: 3 concise, actionable steps to understand/fix/report this issue safely.
-            Checklist: 3 specific safety checks the user should perform right now.
+            You are an autonomous Community Coordinator Agent.
+            The user wants to achieve this complex goal: "${goal}".
+            Break this down into 3-5 distinct, actionable micro-missions for volunteers.
+            Each mission must map to one of these types: FIX_BOUNTY (cleanup/physical), FOOD_FIT (gathering/distributing), MEDICAL_NEED (health), LIFE_SKILL (teaching).
+            Return a JSON array of mission objects.
         `;
 
         const response = await ai.models.generateContent({
             model: modelId,
             contents: prompt,
             config: {
-                thinkingConfig: { thinkingBudget: 32768 }, 
+                thinkingConfig: { thinkingBudget: 16000 }, // Thinking Levels for planning
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            title: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            type: { type: Type.STRING, enum: ['FIX_BOUNTY', 'FOOD_FIT', 'MEDICAL_NEED', 'LIFE_SKILL'] },
+                            urgency: { type: Type.STRING, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+                            reward: { type: Type.NUMBER }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (response.text) {
+            return JSON.parse(response.text);
+        }
+        return [];
+    } catch (error) {
+        console.error("Marathon Agent Error:", error);
+        return [];
+    }
+}
+
+/**
+ * STRATEGIC TRACK: Creative Autopilot
+ * Model: gemini-3-pro-image-preview
+ * Logic: Generates professional campaign assets with legible text
+ */
+export const generateCampaignPoster = async (cause: string, style: string): Promise<string | null> => {
+    try {
+        const modelId = 'gemini-3-pro-image-preview';
+        const prompt = `Create a professional community service poster for: "${cause}". Style: ${style}. High resolution, legible text, inspiring.`;
+        
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                imageConfig: {
+                    aspectRatio: "3:4", 
+                    imageSize: "1K"
+                }
+            }
+        });
+
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+                return `data:image/png;base64,${part.inlineData.data}`;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error("Creative Autopilot Error:", error);
+        return null;
+    }
+}
+
+
+/**
+ * FEATURE: Life Skills (Teacher)
+ */
+export const generateLifeSkillLesson = async (context: string): Promise<SkillLesson> => {
+    try {
+        const modelId = "gemini-3-pro-preview";
+
+        const prompt = `
+            Create a micro-learning lesson triggered by: "${context}".
+            Title: A catchy title.
+            Steps: 3 concise steps.
+            Checklist: 3 verification checks.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: prompt,
+            config: {
+                thinkingConfig: { thinkingBudget: 8192 }, 
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -95,19 +176,14 @@ export const generateLifeSkillLesson = async (context: string): Promise<SkillLes
          throw new Error("No lesson returned");
 
     } catch (error) {
-        console.error("Gemini Skill Gen Error:", error);
         return {
             title: "Safety Basics",
-            steps: ["Assess the area", "Report accurately", "Verify completion"],
-            checklist: ["Is it safe?", "Did you take a photo?", "Is the location correct?"]
+            steps: ["Assess", "Act", "Verify"],
+            checklist: ["Safe?", "Done?", "Logged?"]
         };
     }
 };
 
-/**
- * FEATURE: Fast AI responses
- * Model: gemini-2.5-flash-lite
- */
 export const generateConversationStarters = async (topic: string): Promise<string[]> => {
     try {
         const modelId = "gemini-2.5-flash-lite";
@@ -135,38 +211,8 @@ export const generateConversationStarters = async (topic: string): Promise<strin
 }
 
 /**
- * FEATURE: Control image aspect ratios
- * Model: gemini-3-pro-image-preview
- */
-export const generateImpactBadge = async (prompt: string, aspectRatio: string = "1:1"): Promise<string | null> => {
-    try {
-        const modelId = 'gemini-3-pro-image-preview';
-        
-        const response = await ai.models.generateContent({
-            model: modelId,
-            contents: { parts: [{ text: prompt }] },
-            config: {
-                imageConfig: {
-                    aspectRatio: aspectRatio as any, 
-                    imageSize: "1K"
-                }
-            }
-        });
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                return `data:image/png;base64,${part.inlineData.data}`;
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error("Image Gen Error:", error);
-        return null;
-    }
-}
-
-/**
- * FEATURE: Create conversational voice apps (Live API)
+ * STRATEGIC TRACK: The Real-Time Teacher / Concept 5 (Voicemail for Blind)
+ * Model: gemini-2.5-flash-native-audio-preview
  */
 export class LiveSession {
     private session: any;
@@ -182,16 +228,20 @@ export class LiveSession {
         this.outputContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
     }
 
-    async connect(onStatusChange: (status: string) => void) {
+    async connect(onStatusChange: (status: string) => void, mode: 'TEACHER' | 'BLIND_SUPPORT' = 'TEACHER') {
         try {
             onStatusChange("connecting");
             this.currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
+            const sysInstruction = mode === 'BLIND_SUPPORT' 
+                ? "You are 'Hero Voice', a navigational assistant for visually impaired users. Help them send messages, find missions, and describe their surroundings. Be concise."
+                : "You are a friendly mentor helping a volunteer learn a new skill. Be encouraging and adaptive.";
+
             this.session = await ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-12-2025',
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    systemInstruction: "You are a friendly senior citizen named 'Elder AI' helping a volunteer practice a check-in call.",
+                    systemInstruction: sysInstruction,
                 },
                 callbacks: {
                     onopen: () => {

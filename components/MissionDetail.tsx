@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mission, MissionStatus, MissionType, IncidentReport, SkillLesson } from '../types';
-import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square } from 'lucide-react';
-import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, generateImpactBadge, LiveSession } from '../services/geminiService';
+import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck } from 'lucide-react';
+import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, LiveSession } from '../services/geminiService';
 
 interface MissionDetailProps {
   mission: Mission;
@@ -19,7 +19,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
   const [isThinking, setIsThinking] = useState(false);
   const [checklistState, setChecklistState] = useState<boolean[]>([]);
   
-  // Live Audio State
+  // Live Audio State (Real-Time Teacher)
   const [liveStatus, setLiveStatus] = useState<string>('idle'); 
   const liveSessionRef = useRef<LiveSession | null>(null);
 
@@ -53,7 +53,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
 
   const handleShare = async () => {
       const shareData = {
-          title: `CommunityOS Mission: ${mission.title}`,
+          title: `Community Hero Mission: ${mission.title}`,
           text: `Check out this mission: "${mission.title}". Help needed nearby!`,
           url: window.location.href 
       };
@@ -115,14 +115,15 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
       }, 1500);
   };
 
-  const toggleLiveSession = async () => {
+  const toggleLiveTutor = async () => {
       if (liveStatus === 'connected') {
           liveSessionRef.current?.disconnect();
           setLiveStatus('idle');
           liveSessionRef.current = null;
       } else {
+          setLiveStatus('connecting');
           liveSessionRef.current = new LiveSession();
-          liveSessionRef.current.connect((status) => setLiveStatus(status));
+          await liveSessionRef.current.connect((status) => setLiveStatus(status), 'TEACHER');
       }
   };
 
@@ -143,6 +144,28 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                     )}
                 </div>
                 <p className="text-slate-600 text-sm leading-relaxed">{mission.description}</p>
+                
+                {/* Concept 2: Medimate Data */}
+                {mission.type === MissionType.MEDICAL_NEED && mission.medicalData && (
+                    <div className="mt-4 bg-red-50 border border-red-100 p-3 rounded-lg">
+                        <h5 className="text-xs font-bold text-red-800 uppercase mb-2 flex items-center gap-2">
+                            <Activity className="w-3 h-3"/> Medimate Request
+                        </h5>
+                        <div className="grid grid-cols-2 gap-2 text-sm text-red-700">
+                             {mission.medicalData.bloodType && (
+                                 <div><span className="font-bold">Blood:</span> {mission.medicalData.bloodType}</div>
+                             )}
+                             {mission.medicalData.medication && (
+                                 <div><span className="font-bold">Meds:</span> {mission.medicalData.medication}</div>
+                             )}
+                             {mission.medicalData.isUrgentTransport && (
+                                 <div className="col-span-2 flex items-center gap-1 font-bold">
+                                     <Truck className="w-3 h-3"/> Transport Required
+                                 </div>
+                             )}
+                        </div>
+                    </div>
+                )}
             </div>
             
             <div className="flex gap-3">
@@ -211,7 +234,25 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                              </div>
                          ) : skillLesson ? (
                              <>
-                                <h3 className="font-bold text-lg mb-4">{skillLesson.title}</h3>
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="font-bold text-lg">{skillLesson.title}</h3>
+                                    {/* Real-Time Teacher Toggle */}
+                                    <button 
+                                        onClick={toggleLiveTutor}
+                                        className={`p-2 rounded-full transition-colors ${liveStatus === 'connected' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500'}`}
+                                        title="Start AI Tutor"
+                                    >
+                                        {liveStatus === 'connected' ? <Mic className="w-5 h-5"/> : <MicOff className="w-5 h-5"/>}
+                                    </button>
+                                </div>
+                                
+                                {liveStatus === 'connected' && (
+                                    <div className="bg-slate-900 text-white p-3 rounded-lg mb-4 text-xs flex items-center gap-2">
+                                        <Volume2 className="w-4 h-4 animate-pulse"/> 
+                                        Gemini Tutor listening... Ask questions!
+                                    </div>
+                                )}
+
                                 <div className="space-y-6">
                                     <div>
                                         <h4 className="text-xs font-bold uppercase text-slate-400 mb-2">Learning Steps</h4>
@@ -310,7 +351,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
 
         <div className="mt-8 flex items-center justify-center gap-2 text-slate-400 text-xs">
             <Shield className="w-3 h-3" />
-            <span>Secured by CommunityOS Trust Layer</span>
+            <span>Secured by Community Hero Trust Layer</span>
         </div>
       </div>
     </div>

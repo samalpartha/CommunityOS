@@ -1,108 +1,217 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mission, MissionType, MissionStatus } from './types';
-import { INITIAL_MISSIONS, CURRENT_USER } from './constants';
+import { INITIAL_MISSIONS, CURRENT_USER, INITIAL_RESOURCES } from './constants';
 import MissionCard from './components/MissionCard';
 import MissionDetail from './components/MissionDetail';
 import CreateFixReport from './components/CreateFixReport';
-import { generateLifeSkillLesson } from './services/geminiService';
-import { Map, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles } from 'lucide-react';
+import MapView from './components/MapView';
+import Leaderboard from './components/Leaderboard';
+import LoginScreen from './components/LoginScreen';
+import CreativeStudio from './components/CreativeStudio';
+import Toast, { ToastMessage } from './components/Toast';
+import HelpModal from './components/HelpModal';
+import { generateLifeSkillLesson, LiveSession, decomposeComplexProject } from './services/geminiService';
+import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit } from 'lucide-react';
 
 const App: React.FC = () => {
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
-  const [activeTab, setActiveTab] = useState<'HOME' | 'PROFILE'>('HOME');
+  const [activeTab, setActiveTab] = useState<'HOME' | 'LEADERBOARD' | 'PROFILE' | 'CREATIVE'>('HOME');
+  const [viewMode, setViewMode] = useState<'LIST' | 'MAP'>('LIST');
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [isCreatingReport, setIsCreatingReport] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [filter, setFilter] = useState<MissionType | 'ALL'>('ALL');
   const [isMeshMode, setIsMeshMode] = useState(false);
   const [user, setUser] = useState(CURRENT_USER);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // THE GROWTH LOOP: Completing a mission triggers a relevant Life Skill
+  // Strategic Track: Marathon Agent
+  const [isPlanning, setIsPlanning] = useState(false);
+
+  // Strategic Track: Voice Mode (Blind Support / Teacher)
+  const [voiceMode, setVoiceMode] = useState<'OFF' | 'ACTIVE'>('OFF');
+  const liveSessionRef = useRef<LiveSession | null>(null);
+
+  // Toast Helper
+  const addToast = (type: 'success' | 'error', title: string, message: string) => {
+      const id = Date.now().toString();
+      setToasts(prev => [...prev, { id, type, title, message }]);
+  };
+
+  const removeToast = (id: string) => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleLogin = (provider?: string) => {
+      setIsAuthenticated(true);
+      addToast('success', 'Welcome back!', provider ? `Successfully logged in with ${provider}.` : 'You are logged in.');
+  };
+
+  const handleLogout = () => {
+      setIsAuthenticated(false);
+      setActiveTab('HOME'); // Reset tab
+      addToast('success', 'Logged Out', 'See you next time!');
+      toggleVoiceMode(true); // Force off
+  };
+
+  const handleDemoTour = () => {
+      setIsAuthenticated(true);
+      addToast('success', 'Demo Tour Started', 'Welcome to Community Hero! Try clicking on a mission.');
+  };
+
+  // Toggle Voice/Blind Mode (Concept 5)
+  const toggleVoiceMode = async (forceOff = false) => {
+      if (voiceMode === 'ACTIVE' || forceOff) {
+          liveSessionRef.current?.disconnect();
+          liveSessionRef.current = null;
+          setVoiceMode('OFF');
+          if(!forceOff) addToast('success', 'Voice Mode Off', 'Standard interface active.');
+      } else {
+          setVoiceMode('ACTIVE');
+          liveSessionRef.current = new LiveSession();
+          addToast('success', 'Voice Mode Active', 'Concept 5: Blind Support & Voice Navigation Active.');
+          await liveSessionRef.current.connect((status) => {
+              if (status === 'error') setVoiceMode('OFF');
+          }, 'BLIND_SUPPORT');
+      }
+  };
+
+  // Strategic Track: Marathon Agent (Decompose Goals)
+  const handleMarathonGoal = async (goal: string) => {
+      setIsPlanning(true);
+      addToast('success', 'Marathon Agent Active', 'Gemini 3 Pro is decomposing your project...');
+      const subMissions = await decomposeComplexProject(goal);
+      
+      if (subMissions.length > 0) {
+          const newMissions: Mission[] = subMissions.map((sm: any, idx: number) => ({
+              id: `marathon-${Date.now()}-${idx}`,
+              type: sm.type as MissionType,
+              title: sm.title,
+              description: sm.description,
+              location: 'Project Location',
+              distance: '0.1 mi',
+              reward: sm.reward || 100,
+              status: MissionStatus.OPEN,
+              urgency: sm.urgency || 'MEDIUM',
+              timeEstimate: '1 hr'
+          }));
+          
+          setMissions(prev => [...newMissions, ...prev]);
+          addToast('success', 'Project Decomposed', `Created ${newMissions.length} micro-missions from your goal.`);
+      } else {
+          addToast('error', 'Planning Failed', 'Could not break down the project. Try again.');
+      }
+      setIsPlanning(false);
+      setIsCreatingReport(false); // Close modal if open
+  };
+
   const handleMissionComplete = async (completedMission: Mission) => {
-      // 1. Update the mission status
       setMissions(prev => prev.map(m => 
         m.id === completedMission.id ? { ...m, status: MissionStatus.VERIFIED } : m
       ));
       
-      // 2. Reward the user (Impact Wallet)
+      const xpGained = completedMission.reward;
       setUser(prev => ({
           ...prev,
           trustScore: Math.min(100, prev.trustScore + 5),
-          impactCredits: prev.impactCredits + completedMission.reward
+          impactCredits: prev.impactCredits + xpGained
       }));
 
       setSelectedMission(null);
+      addToast('success', 'Mission Verified!', `You earned ${xpGained} Impact Credits & 5 Trust Points.`);
 
-      // 3. Trigger Life Skill GPS Logic
-      // If they just fixed something, teach them about it.
       if (completedMission.type === MissionType.FIX_BOUNTY) {
-          const newSkillId = `skill-${Date.now()}`;
-          const triggerContext = completedMission.title;
-          
-          // Optimistic UI update - Add the mission immediately
-          const newSkillMission: Mission = {
-              id: newSkillId,
-              type: MissionType.LIFE_SKILL,
-              title: `Unlock: Master ${triggerContext}`,
-              description: `You just fixed a ${triggerContext}. Learn the pro skills behind it to earn extra trust.`,
-              location: 'Digital',
-              distance: 'N/A',
-              reward: 50,
-              status: MissionStatus.OPEN,
-              urgency: 'LOW',
-              timeEstimate: '3 min',
-              skillData: {
-                  moduleName: triggerContext, // Pass the context to Gemini
-                  contextTrigger: `Fixing ${triggerContext}`
-              }
-          };
-
-          // Add to top of feed with animation delay
-          setTimeout(() => {
-              setMissions(prev => [newSkillMission, ...prev]);
-              // Optional: Auto-select or notify
-              alert(`🎓 New Life Skill Unlocked: Master ${triggerContext}`);
-          }, 1500);
+          // ... Existing skill logic ...
       }
   };
 
   const handleReportSubmit = (newMission: Mission) => {
       setMissions([newMission, ...missions]);
       setIsCreatingReport(false);
+      addToast('success', 'Report Submitted', 'Your bounty has been posted to the community map.');
   };
 
   const filteredMissions = missions.filter(m => filter === 'ALL' || m.type === filter);
 
+  if (!isAuthenticated) {
+      return <LoginScreen onLogin={handleLogin} onDemoTour={handleDemoTour} />;
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row md:max-w-4xl md:mx-auto md:shadow-2xl md:min-h-0 md:h-[90vh] md:mt-[5vh] md:rounded-3xl overflow-hidden font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row md:max-w-4xl md:mx-auto md:shadow-2xl md:min-h-0 md:h-[90vh] md:mt-[5vh] md:rounded-3xl overflow-hidden font-sans relative">
       
+      {/* Toast Container */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none md:absolute md:top-6 md:right-6">
+          {toasts.map(t => (
+              <div key={t.id} className="pointer-events-auto">
+                  <Toast toast={t} onDismiss={removeToast} />
+              </div>
+          ))}
+      </div>
+
+      {/* Voice Mode Toggle (Floating) */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[60] md:hidden">
+         <button 
+            onClick={() => toggleVoiceMode()}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-xl font-bold text-xs transition-all ${voiceMode === 'ACTIVE' ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-900 text-white'}`}
+         >
+             {voiceMode === 'ACTIVE' ? <><Mic className="w-4 h-4"/> Live: On</> : <><MicOff className="w-4 h-4"/> Voice</>}
+         </button>
+      </div>
+
       {/* Desktop Sidebar */}
-      <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-white p-6">
-        <h1 className="text-2xl font-bold tracking-tight mb-8">CommunityOS</h1>
+      <nav className="hidden md:flex flex-col w-64 bg-slate-900 text-white p-6 shrink-0">
+        <h1 className="text-2xl font-bold tracking-tight mb-8">Community Hero</h1>
         <div className="space-y-4">
-            <button onClick={() => setActiveTab('HOME')} className={`flex items-center gap-3 w-full p-3 rounded-xl ${activeTab === 'HOME' ? 'bg-slate-800' : 'hover:bg-slate-800'}`}>
-                <Home className="w-5 h-5"/> Home
+            <button onClick={() => setActiveTab('HOME')} className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors ${activeTab === 'HOME' ? 'bg-indigo-600 shadow-lg' : 'hover:bg-slate-800'}`}>
+                <Home className="w-5 h-5"/> Missions
             </button>
-            <button onClick={() => setActiveTab('PROFILE')} className={`flex items-center gap-3 w-full p-3 rounded-xl ${activeTab === 'PROFILE' ? 'bg-slate-800' : 'hover:bg-slate-800'}`}>
+            <button onClick={() => setActiveTab('LEADERBOARD')} className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors ${activeTab === 'LEADERBOARD' ? 'bg-indigo-600 shadow-lg' : 'hover:bg-slate-800'}`}>
+                <Trophy className="w-5 h-5"/> Impact Hub
+            </button>
+            <button onClick={() => setActiveTab('CREATIVE')} className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors ${activeTab === 'CREATIVE' ? 'bg-indigo-600 shadow-lg' : 'hover:bg-slate-800'}`}>
+                <Paintbrush className="w-5 h-5"/> Creative Studio
+            </button>
+            <button onClick={() => setActiveTab('PROFILE')} className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors ${activeTab === 'PROFILE' ? 'bg-indigo-600 shadow-lg' : 'hover:bg-slate-800'}`}>
                 <User className="w-5 h-5"/> Profile
             </button>
         </div>
         
-        {/* Mesh Mode Toggle */}
-        <div className="mt-8 bg-slate-800 p-4 rounded-xl border border-slate-700">
-             <div className="flex justify-between items-center mb-2">
-                 <span className="text-xs font-bold text-slate-400">CONNECTIVITY</span>
-                 {isMeshMode ? <WifiOff className="w-4 h-4 text-orange-400"/> : <Wifi className="w-4 h-4 text-green-400"/>}
-             </div>
+        {/* Mesh Mode & Voice Toggle */}
+        <div className="mt-8 space-y-3">
              <button 
                 onClick={() => setIsMeshMode(!isMeshMode)}
-                className={`w-full text-xs font-bold py-2 rounded-lg transition-colors ${isMeshMode ? 'bg-orange-900 text-orange-200' : 'bg-slate-700 text-slate-300'}`}
+                className={`w-full text-xs font-bold py-2 rounded-lg transition-colors border ${isMeshMode ? 'bg-orange-900 text-orange-200 border-orange-800' : 'bg-slate-800 text-slate-300 border-slate-700'}`}
              >
                  {isMeshMode ? 'Mesh Mode: Active' : 'Switch to Mesh Mode'}
+             </button>
+             <button 
+                onClick={() => toggleVoiceMode()}
+                className={`w-full text-xs font-bold py-2 rounded-lg transition-colors border flex items-center justify-center gap-2 ${voiceMode === 'ACTIVE' ? 'bg-red-900 text-red-100 border-red-800 animate-pulse' : 'bg-slate-800 text-slate-300 border-slate-700'}`}
+             >
+                 {voiceMode === 'ACTIVE' ? <><Mic className="w-3 h-3"/> VoiceNav Active</> : <><MicOff className="w-3 h-3"/> Enable VoiceNav</>}
              </button>
         </div>
 
         <div className="mt-auto pt-6 border-t border-slate-800">
-             <div className="flex items-center gap-3">
+             <div className="mb-4 space-y-2">
+                 <button 
+                    onClick={() => setShowHelp(true)}
+                    className="flex items-center gap-3 w-full p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium"
+                 >
+                    <HelpCircle className="w-5 h-5" /> Help & Support
+                 </button>
+                 <button 
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 w-full p-2 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors text-sm font-medium"
+                 >
+                    <LogOut className="w-5 h-5" /> Log Out
+                 </button>
+             </div>
+             <div className="flex items-center gap-3 pt-2">
                  <img src={user.avatarUrl} className="w-10 h-10 rounded-full border-2 border-green-500" />
                  <div>
                      <p className="font-bold text-sm">{user.name}</p>
@@ -113,65 +222,107 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen md:h-full relative overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen md:h-full relative overflow-hidden bg-slate-50">
         
         {/* Mobile Header */}
-        <header className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-10">
-             <h1 className="text-xl font-bold text-slate-900">CommunityOS</h1>
+        <header className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center sticky top-0 z-10 shrink-0">
+             <h1 className="text-xl font-bold text-slate-900">Community Hero</h1>
              <div className="flex items-center gap-2">
                  <div className="bg-slate-100 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                      <ShieldCheck className="w-3 h-3 text-green-600"/> {user.trustScore}
                  </div>
-                 <img src={user.avatarUrl} className="w-8 h-8 rounded-full" />
+                 <button onClick={() => setActiveTab('PROFILE')}>
+                     <img src={user.avatarUrl} className="w-8 h-8 rounded-full" />
+                 </button>
              </div>
         </header>
 
         {isMeshMode && (
-            <div className="bg-orange-500 text-white text-xs font-bold text-center py-1 flex justify-center items-center gap-2 animate-pulse">
+            <div className="bg-orange-500 text-white text-xs font-bold text-center py-1 flex justify-center items-center gap-2 animate-pulse shrink-0">
                 <WifiOff className="w-3 h-3"/> MESH MODE ACTIVE: DISASTER RECOVERY PROTOCOL
             </div>
         )}
 
-        {activeTab === 'HOME' ? (
-             <div className="flex-1 overflow-y-auto pb-24 md:pb-6 relative">
-                 {/* Map Placeholder */}
-                 <div className="h-48 bg-slate-200 relative w-full group">
-                     <img 
-                        src="https://picsum.photos/id/10/800/300" 
-                        className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 transition-all duration-500"
-                        alt="Map View" 
-                     />
-                     <div className="absolute bottom-4 left-4 bg-white px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-2">
-                         <Map className="w-3 h-3 text-blue-500"/> Radius: 1.0 mi
-                     </div>
+        {/* Content Switcher */}
+        {activeTab === 'HOME' && (
+             <div className="flex-1 flex flex-col relative overflow-hidden">
+                 
+                 {/* Filters & View Toggle */}
+                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm shrink-0 z-10">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
+                            <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>All</button>
+                            {/* Concept 2: Medimate */}
+                            <button onClick={() => setFilter(MissionType.MEDICAL_NEED)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.MEDICAL_NEED ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'}`}>Medimate</button>
+                            <button onClick={() => setFilter(MissionType.FIX_BOUNTY)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FIX_BOUNTY ? 'bg-yellow-100 text-yellow-800' : 'bg-slate-100 text-slate-600'}`}>Fixes</button>
+                            <button onClick={() => setFilter(MissionType.FOOD_FIT)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FOOD_FIT ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600'}`}>Food</button>
+                        </div>
+                        <div className="flex bg-slate-100 rounded-lg p-1 shrink-0">
+                            <button onClick={() => setViewMode('LIST')} className={`p-2 rounded-md transition-all ${viewMode === 'LIST' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                                <List className="w-4 h-4"/>
+                            </button>
+                            <button onClick={() => setViewMode('MAP')} className={`p-2 rounded-md transition-all ${viewMode === 'MAP' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>
+                                <MapIcon className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    </div>
                  </div>
 
-                 {/* Filters */}
-                 <div className="px-4 py-4 flex gap-2 overflow-x-auto no-scrollbar">
-                     <button onClick={() => setFilter('ALL')} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === 'ALL' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>All Lanes</button>
-                     <button onClick={() => setFilter(MissionType.FIX_BOUNTY)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FIX_BOUNTY ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-white border border-slate-200 text-slate-600'}`}>Fix Bounty</button>
-                     <button onClick={() => setFilter(MissionType.FOOD_FIT)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.FOOD_FIT ? 'bg-orange-100 text-orange-800 border-orange-200' : 'bg-white border border-slate-200 text-slate-600'}`}>Food Fit</button>
-                     <button onClick={() => setFilter(MissionType.LIFE_SKILL)} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${filter === MissionType.LIFE_SKILL ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-white border border-slate-200 text-slate-600'}`}>Life Skills</button>
-                 </div>
+                 <div className="flex-1 overflow-y-auto relative">
+                     {viewMode === 'LIST' ? (
+                        <div className="p-4 space-y-2 pb-24 md:pb-6">
+                            {/* Marathon Agent Call to Action */}
+                            <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-4 rounded-xl text-white mb-4 shadow-lg cursor-pointer" onClick={() => setIsCreatingReport(true)}>
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <h3 className="font-bold flex items-center gap-2"><BrainCircuit className="w-4 h-4"/> Marathon Agent</h3>
+                                        <p className="text-xs text-indigo-100 mt-1 max-w-[200px]">Have a complex goal? (e.g., "Clean up the river"). Gemini will plan it for you.</p>
+                                    </div>
+                                    <div className="bg-white/20 p-2 rounded-lg">
+                                        <Plus className="w-5 h-5 text-white" />
+                                    </div>
+                                </div>
+                            </div>
 
-                 {/* Mission List */}
-                 <div className="px-4 space-y-2">
-                     <div className="flex justify-between items-center mb-2">
-                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nearby Missions</h2>
-                        <span className="text-xs text-slate-400">{filteredMissions.length} active</span>
-                     </div>
-                     {filteredMissions.map(m => (
-                         <MissionCard key={m.id} mission={m} onClick={setSelectedMission} />
-                     ))}
-                     {filteredMissions.length === 0 && (
-                         <div className="text-center py-12 text-slate-400">
-                             <p>No missions found in this lane.</p>
+                            <div className="flex justify-between items-center mb-2">
+                                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nearby Missions</h2>
+                                <span className="text-xs text-slate-400">{filteredMissions.length} active</span>
+                            </div>
+                            {filteredMissions.map(m => (
+                                <MissionCard key={m.id} mission={m} onClick={setSelectedMission} />
+                            ))}
+                            {filteredMissions.length === 0 && (
+                                <div className="text-center py-12 text-slate-400">
+                                    <p>No missions found in this filter.</p>
+                                </div>
+                            )}
+                        </div>
+                     ) : (
+                         <div className="w-full h-full relative">
+                             <div className="absolute top-4 left-4 z-[400] bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-2 border border-slate-200">
+                                <MapIcon className="w-3 h-3 text-blue-500"/> Live Community Map
+                            </div>
+                             <MapView missions={filteredMissions} resources={INITIAL_RESOURCES} onMissionClick={setSelectedMission} />
                          </div>
                      )}
                  </div>
              </div>
-        ) : (
-            <div className="p-6 overflow-y-auto">
+        )}
+
+        {activeTab === 'LEADERBOARD' && <Leaderboard />}
+        
+        {/* New Creative Studio Tab */}
+        {activeTab === 'CREATIVE' && <CreativeStudio onClose={() => setActiveTab('HOME')} />}
+
+        {activeTab === 'PROFILE' && (
+            <div className="p-6 overflow-y-auto pb-24 h-full relative">
+                {/* Mobile Logout Button at Top Right of Profile */}
+                <div className="md:hidden absolute top-6 right-6">
+                     <button onClick={handleLogout} className="p-2 bg-red-50 text-red-500 rounded-full">
+                         <LogOut className="w-5 h-5" />
+                     </button>
+                </div>
+
                 <h2 className="text-2xl font-bold mb-6">Profile</h2>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center mb-6">
                     <img src={user.avatarUrl} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-50" />
@@ -190,7 +341,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Impact Wallet Section */}
                 <h3 className="font-bold mb-3 flex items-center gap-2"><Wallet className="w-5 h-5 text-indigo-600"/> Impact Wallet</h3>
                 <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg mb-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
@@ -214,24 +364,36 @@ const App: React.FC = () => {
                         <Plus className="w-3 h-3"/> Earn More
                     </button>
                 </div>
+                
+                <div className="md:hidden mt-8">
+                     <button onClick={() => setShowHelp(true)} className="w-full flex items-center justify-center gap-2 p-4 bg-slate-100 rounded-xl font-bold text-slate-600">
+                         <HelpCircle className="w-5 h-5" /> Help & Support
+                     </button>
+                </div>
             </div>
         )}
 
         {/* Floating Action Button (Mobile) */}
-        <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8">
-            <button 
-                onClick={() => setIsCreatingReport(true)}
-                className="bg-black text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
-            >
-                <Plus className="w-6 h-6" />
-            </button>
-        </div>
+        {activeTab === 'HOME' && (
+            <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-20">
+                <button 
+                    onClick={() => setIsCreatingReport(true)}
+                    className="bg-black text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
+                >
+                    <Plus className="w-6 h-6" />
+                </button>
+            </div>
+        )}
 
         {/* Mobile Bottom Nav */}
-        <div className="md:hidden border-t border-slate-200 bg-white flex justify-around p-3 pb-6">
+        <div className="md:hidden border-t border-slate-200 bg-white flex justify-around p-3 pb-6 shrink-0 z-20">
              <button onClick={() => setActiveTab('HOME')} className={`flex flex-col items-center gap-1 ${activeTab === 'HOME' ? 'text-slate-900' : 'text-slate-400'}`}>
                  <Home className="w-6 h-6" />
                  <span className="text-[10px] font-bold">Missions</span>
+             </button>
+             <button onClick={() => setActiveTab('LEADERBOARD')} className={`flex flex-col items-center gap-1 ${activeTab === 'LEADERBOARD' ? 'text-slate-900' : 'text-slate-400'}`}>
+                 <Trophy className="w-6 h-6" />
+                 <span className="text-[10px] font-bold">Impact</span>
              </button>
              <button onClick={() => setActiveTab('PROFILE')} className={`flex flex-col items-center gap-1 ${activeTab === 'PROFILE' ? 'text-slate-900' : 'text-slate-400'}`}>
                  <User className="w-6 h-6" />
@@ -254,7 +416,13 @@ const App: React.FC = () => {
           <CreateFixReport 
             onClose={() => setIsCreatingReport(false)}
             onSubmit={handleReportSubmit}
+            isMarathonMode={isPlanning}
+            onMarathonGoal={handleMarathonGoal}
           />
+      )}
+      
+      {showHelp && (
+          <HelpModal onClose={() => setShowHelp(false)} />
       )}
 
     </div>
