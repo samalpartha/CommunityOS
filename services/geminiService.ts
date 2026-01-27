@@ -2,18 +2,18 @@ import { GoogleGenAI, Type, LiveServerMessage, Modality } from "@google/genai";
 import { IncidentReport, SkillLesson, Mission } from "../types";
 
 // Initialize Gemini Client
-// Note: In production, use process.env.API_KEY. Key updated per user request to resolve leak error.
-const ai = new GoogleGenAI({ apiKey: 'AIzaSyDXsPfaKFXhv-md2jXTzmf0FZF6RHh5Ymk' });
+// Note: Key moved to .env for security (GitGuardian Compliance)
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 /**
  * FEATURE: Analyze images
  * Model: gemini-3-pro-preview
  */
 export const analyzeFixImage = async (base64Image: string): Promise<IncidentReport> => {
-  try {
-    const modelId = "gemini-3-pro-preview"; 
+    try {
+        const modelId = "gemini-3-pro-preview";
 
-    const prompt = `
+        const prompt = `
       Analyze this image for a civic maintenance report or hazard. 
       Identify the main issue (e.g., Pothole, Graffiti, Broken Light, Trash).
       Assess the severity (Low, Medium, High, Critical).
@@ -21,40 +21,40 @@ export const analyzeFixImage = async (base64Image: string): Promise<IncidentRepo
       Return JSON format.
     `;
 
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: prompt },
-        ],
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                category: { type: Type.STRING },
-                severity: { type: Type.STRING },
-                description: { type: Type.STRING }
-            }
+        const response = await ai.models.generateContent({
+            model: modelId,
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                    { text: prompt },
+                ],
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        category: { type: Type.STRING },
+                        severity: { type: Type.STRING },
+                        description: { type: Type.STRING }
+                    }
+                }
+            },
+        });
+
+        if (response.text) {
+            return JSON.parse(response.text) as IncidentReport;
         }
-      },
-    });
+        throw new Error("No analysis returned");
 
-    if (response.text) {
-        return JSON.parse(response.text) as IncidentReport;
+    } catch (error) {
+        console.error("Gemini Analysis Error:", error);
+        return {
+            category: "Maintenance Issue (AI Unavailable)",
+            severity: "Unknown",
+            description: "Could not analyze image automatically."
+        };
     }
-    throw new Error("No analysis returned");
-
-  } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    return {
-      category: "Maintenance Issue (AI Unavailable)",
-      severity: "Unknown",
-      description: "Could not analyze image automatically."
-    };
-  }
 };
 
 /**
@@ -114,7 +114,7 @@ export const verifyFixCompletion = async (beforeImage: string, afterImage: strin
 export const decomposeComplexProject = async (goal: string): Promise<any[]> => {
     try {
         const modelId = "gemini-3-pro-preview";
-        
+
         const prompt = `
             You are an autonomous Community Coordinator Agent.
             The user wants to achieve this complex goal: "${goal}".
@@ -164,13 +164,13 @@ export const generateCampaignPoster = async (cause: string, style: string): Prom
     try {
         const modelId = 'gemini-3-pro-image-preview';
         const prompt = `Create a professional community service poster for: "${cause}". Style: ${style}. High resolution, legible text, inspiring.`;
-        
+
         const response = await ai.models.generateContent({
             model: modelId,
             contents: { parts: [{ text: prompt }] },
             config: {
                 imageConfig: {
-                    aspectRatio: "3:4", 
+                    aspectRatio: "3:4",
                     imageSize: "1K"
                 }
             }
@@ -207,7 +207,7 @@ export const generateLifeSkillLesson = async (context: string): Promise<SkillLes
             model: modelId,
             contents: prompt,
             config: {
-                thinkingConfig: { thinkingBudget: 8192 }, 
+                thinkingConfig: { thinkingBudget: 8192 },
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -223,7 +223,7 @@ export const generateLifeSkillLesson = async (context: string): Promise<SkillLes
         if (response.text) {
             return JSON.parse(response.text) as SkillLesson;
         }
-         throw new Error("No lesson returned");
+        throw new Error("No lesson returned");
 
     } catch (error) {
         return {
@@ -282,8 +282,8 @@ export class LiveSession {
         try {
             onStatusChange("connecting");
             this.currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            const sysInstruction = mode === 'BLIND_SUPPORT' 
+
+            const sysInstruction = mode === 'BLIND_SUPPORT'
                 ? "You are 'Hero Voice', a navigational assistant for visually impaired users. Help them send messages, find missions, and describe their surroundings. Be concise."
                 : "You are a friendly mentor helping a volunteer learn a new skill. Be encouraging and adaptive.";
 
@@ -351,7 +351,7 @@ export class LiveSession {
         const source = this.outputContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(this.outputContext.destination);
-        
+
         const now = this.outputContext.currentTime;
         const start = Math.max(now, this.nextStartTime);
         source.start(start);

@@ -1,0 +1,128 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    function isCounselor() {
+      return hasRole('COUNSELOR') || hasRole('CITY_ADMIN');
+    }
+    
+    function isStudent() {
+      return hasRole('STUDENT');
+    }
+    
+    function isSameSchool(schoolId) {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentData.schoolId == schoolId;
+    }
+    
+    // Users Collection
+    match /users/{userId} {
+      // Anyone can read public user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile
+      allow create: if isOwner(userId);
+      
+      // Users can only update their own basic fields
+      allow update: if isOwner(userId) && 
+                       // Prevent self-modification of sensitive fields
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['studentData.verifiedHours', 'trustScore', 'role']);
+      
+      // Counselors can update verifiedHours for students in their school
+      allow update: if isCounselor() && 
+                       isSameSchool(resource.data.studentData.schoolId) &&
+                       // Only allow updating verifiedHours and pendingHours
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['studentData.verifiedHours', 'studentData.pendingHours']);
+      
+      // Users can delete their own profile
+      allow delete: if isOwner(userId);
+    }
+    
+    // Missions Collection
+    match /missions/{missionId} {
+      // Anyone authenticated can read missions
+      allow read: if isAuthenticated();
+      
+      // Anyone can create a mission
+      allow create: if isAuthenticated() &&
+                       request.resource.data.createdBy == request.auth.uid &&
+                       request.resource.data.status == 'OPEN';
+      
+      // Only mission creator can update their own mission
+      // OR volunteers can accept/complete missions
+      allow update: if isAuthenticated() && (
+        // Creator can edit
+        (resource.data.createdBy == request.auth.uid) ||
+        // Volunteer can accept
+        (request.resource.data.status == 'ACCEPTED' && 
+         request.resource.data.acceptedBy == request.auth.uid) ||
+        // Volunteer can mark in progress
+        (request.resource.data.status == 'IN_PROGRESS' &&
+         resource.data.acceptedBy == request.auth.uid) ||
+        // Volunteer can submit for verification
+        (request.resource.data.status == 'VERIFYING' &&
+         resource.data.acceptedBy == request.auth.uid &&
+         request.resource.data.proof != null)
+      );
+      
+      // Only creator can delete their mission (if still OPEN)
+      allow delete: if isAuthenticated() && 
+                       resource.data.createdBy == request.auth.uid &&
+                       resource.data.status == 'OPEN';
+    }
+    
+    // Resources Collection (Hospitals, Shelters, etc.)
+    match /resources/{resourceId} {
+      // Anyone can read community resources
+      allow read: if isAuthenticated();
+      
+      // Only admins can create/update/delete resources
+      allow create, update, delete: if hasRole('CITY_ADMIN');
+    }
+    
+    // Audit Logs Collection (append-only, read by admins)
+    match /audit_logs/{logId} {
+      allow read: if hasRole('CITY_ADMIN') || hasRole('COUNSELOR');
+      allow create: if isAuthenticated(); // Cloud Functions will write here
+      allow update, delete: if false; // Never allow updates/deletes
+    }
+    
+    // Certificates Collection
+    match /certificates/{certId} {
+      // Users can read their own certificates
+      allow read: if isAuthenticated() &&
+                     resource.data.userId == request.auth.uid;
+      
+      // Only server (Cloud Functions) can create certificates
+      allow create: if false; // Will be created by Cloud Function
+      
+      // Counselors can read certificates for their school
+      allow read: if isCounselor() &&
+                     isSameSchool(resource.data.schoolId);
+      
+      allow update, delete: if false;
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

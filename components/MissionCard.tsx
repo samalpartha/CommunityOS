@@ -8,50 +8,50 @@ interface MissionCardProps {
 }
 
 const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
-  
+
   const getTheme = (type: MissionType) => {
     switch (type) {
       case MissionType.FOOD_FIT:
-        return { 
-          bg: 'bg-orange-50', 
-          border: 'border-orange-200', 
+        return {
+          bg: 'bg-orange-50',
+          border: 'border-orange-200',
           icon: <Utensils className="w-5 h-5 text-orange-600" />,
           text: 'text-orange-700'
         };
       case MissionType.LONELY_MINUTES:
-        return { 
-          bg: 'bg-blue-50', 
-          border: 'border-blue-200', 
+        return {
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
           icon: <Heart className="w-5 h-5 text-blue-600" />,
           text: 'text-blue-700'
         };
       case MissionType.FIX_BOUNTY:
-        return { 
-          bg: 'bg-yellow-50', 
-          border: 'border-yellow-200', 
+        return {
+          bg: 'bg-yellow-50',
+          border: 'border-yellow-200',
           icon: <Wrench className="w-5 h-5 text-yellow-600" />,
           text: 'text-yellow-700'
         };
       case MissionType.LIFE_SKILL:
-        return { 
-          bg: 'bg-emerald-50', 
-          border: 'border-emerald-200', 
+        return {
+          bg: 'bg-emerald-50',
+          border: 'border-emerald-200',
           icon: <BookOpen className="w-5 h-5 text-emerald-600" />,
           text: 'text-emerald-700'
         };
       case MissionType.MEDICAL_NEED: // Concept 2: Medimate
         return {
-           bg: 'bg-red-50',
-           border: 'border-red-200',
-           icon: <Activity className="w-5 h-5 text-red-600" />,
-           text: 'text-red-700'
+          bg: 'bg-red-50',
+          border: 'border-red-200',
+          icon: <Activity className="w-5 h-5 text-red-600" />,
+          text: 'text-red-700'
         };
       default:
         return {
-            bg: 'bg-slate-50',
-            border: 'border-slate-200',
-            icon: <Zap className="w-5 h-5 text-slate-600" />,
-            text: 'text-slate-700'
+          bg: 'bg-slate-50',
+          border: 'border-slate-200',
+          icon: <Zap className="w-5 h-5 text-slate-600" />,
+          text: 'text-slate-700'
         };
     }
   };
@@ -59,7 +59,7 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
   const theme = getTheme(mission.type);
 
   return (
-    <div 
+    <div
       onClick={() => onClick(mission)}
       className={`w-full p-4 mb-3 rounded-xl border ${theme.border} ${theme.bg} shadow-sm active:scale-[0.98] transition-transform cursor-pointer relative overflow-hidden`}
     >
@@ -73,17 +73,17 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
           </span>
           {/* Squad Badge */}
           {mission.squadSize && mission.squadSize > 1 && (
-              <div className="flex items-center gap-1 bg-violet-100 text-violet-700 px-2 py-1 rounded-full text-[10px] font-bold border border-violet-200">
-                  <Users className="w-3 h-3" />
-                  <span>SQUAD</span>
-              </div>
+            <div className="flex items-center gap-1 bg-violet-100 text-violet-700 px-2 py-1 rounded-full text-[10px] font-bold border border-violet-200">
+              <Users className="w-3 h-3" />
+              <span>SQUAD</span>
+            </div>
           )}
           {/* Marathon Agent Badge */}
           {mission.id.startsWith('marathon') && (
-               <div className="flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200">
-                  <BrainCircuit className="w-3 h-3" />
-                  <span>AGENT PLAN</span>
-               </div>
+            <div className="flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200">
+              <BrainCircuit className="w-3 h-3" />
+              <span>AGENT PLAN</span>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-full shadow-sm border border-slate-100 shrink-0">
@@ -95,31 +95,40 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
       <h3 className="text-lg font-bold text-slate-800 mb-1 leading-tight">{mission.title}</h3>
       <p className="text-sm text-slate-600 mb-4 line-clamp-2">{mission.description}</p>
 
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
         <div className="flex items-center gap-3">
-            {mission.distance !== 'N/A' && (
-                <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {mission.distance}
-                </span>
-            )}
+          {mission.distance !== 'N/A' && (
             <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {mission.timeEstimate}
+              <MapPin className="w-3 h-3" />
+              {mission.distance}
             </span>
-             {mission.squadSize && (
-                <span className="flex items-center gap-1 text-slate-600 font-medium">
-                    <Users className="w-3 h-3" />
-                    {mission.currentSquad}/{mission.squadSize}
-                </span>
-            )}
+          )}
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {mission.timeEstimate}
+          </span>
         </div>
-        {mission.urgency === 'HIGH' && (
-            <span className="flex items-center gap-1 text-red-600 font-medium animate-pulse">
-                <AlertCircle className="w-3 h-3" />
-                Urgent
+
+        <div className="flex items-center gap-2">
+          {mission.urgency === 'HIGH' && (
+            <span className="flex items-center gap-1 text-red-600 font-medium animate-pulse mr-2">
+              <AlertCircle className="w-3 h-3" />
+              Urgent
             </span>
-        )}
+          )}
+
+          {/* Team Up Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Future: Trigger Squad Mode
+            }}
+            className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg font-bold transition-colors"
+          >
+            <Users className="w-3 h-3" />
+            Team Up
+          </button>
+        </div>
       </div>
     </div>
   );

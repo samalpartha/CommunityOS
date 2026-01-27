@@ -1,0 +1,75 @@
+/* High Contrast Mode (Field Ready / High Glare) */
+body.high-contrast {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+}
+
+.high-contrast div, 
+.high-contrast section, 
+.high-contrast article,
+.high-contrast nav,
+.high-contrast aside {
+    background-color: #ffffff !important;
+    border-color: #000000 !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+}
+
+/* Force borders to be visible */
+.high-contrast * {
+    border-width: 1px !important;
+    border-color: #000000 !important;
+}
+
+/* Actionable Elements: Black with Yellow Text */
+.high-contrast button,
+.high-contrast a,
+.high-contrast input[type="submit"],
+.high-contrast [role="button"] {
+    background-color: #000000 !important;
+    color: #FFD700 !important; /* Gold/Yellow */
+    border: 3px solid #000000 !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+}
+
+.high-contrast button:hover,
+.high-contrast a:hover {
+    background-color: #333333 !important;
+    color: #FFFF00 !important; /* Brighter Yellow */
+}
+
+/* Inputs */
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 3px solid #000000 !important;
+    font-weight: bold !important;
+}
+
+/* Emergency Button Override */
+.high-contrast .emergency-btn {
+    background-color: #ffffff !important;
+    color: #ff0000 !important;
+    border: 5px solid #ff0000 !important;
+}
+
+/* Icons usually follow text color */
+.high-contrast svg {
+    stroke: currentColor !important;
+    color: currentColor !important;
+}
+
+/* Hide soft gradients and shadows */
+.high-contrast .bg-gradient-to-r,
+.high-contrast .bg-gradient-to-b,
+.high-contrast .shadow-lg,
+.high-contrast .shadow-xl,
+.high-contrast .blur-3xl {
+    background-image: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+}

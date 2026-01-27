@@ -1,3 +1,14 @@
+export enum BloodType {
+  A_POS = 'A+',
+  A_NEG = 'A-',
+  B_POS = 'B+',
+  B_NEG = 'B-',
+  AB_POS = 'AB+',
+  AB_NEG = 'AB-',
+  O_POS = 'O+',
+  O_NEG = 'O-',
+}
+
 export enum MissionType {
   FOOD_FIT = 'FOOD_FIT',
   LONELY_MINUTES = 'LONELY_MINUTES',
@@ -19,17 +30,43 @@ export enum MissionStatus {
 export enum UserRole {
   NEIGHBOR = 'NEIGHBOR',
   VERIFIED_VOLUNTEER = 'VERIFIED_VOLUNTEER',
+  STUDENT = 'STUDENT',
+  COUNSELOR = 'COUNSELOR', // New Role
   CITY_ADMIN = 'CITY_ADMIN',
+}
+
+export interface Certificate {
+  id: string;
+  type: 'BRONZE' | 'SILVER' | 'GOLD' | 'CUSTOM';
+  hoursCompleted: number;
+  issuedDate: string;
+  downloadUrl?: string;
 }
 
 export interface User {
   id: string;
   name: string;
+  email?: string; // Added for Counselor Dashboard
   avatarUrl: string;
   trustScore: number; // 0 - 100
   impactCredits: number; // Impact Wallet
   role: UserRole;
   badges: string[];
+
+  // Student-specific fields
+  studentData?: {
+    schoolId: string;
+    schoolName: string;
+    graduationYear: number;
+    counselorEmail: string;
+    verifiedHours: number;
+    pendingHours: number;
+    certificates: Certificate[];
+  };
+
+  // Gamification (Concept 13)
+  streak: number;
+  lastLoginDate: string; // ISO Date
 }
 
 export interface Mission {
@@ -47,7 +84,7 @@ export interface Mission {
   status: MissionStatus;
   urgency: 'LOW' | 'MEDIUM' | 'HIGH';
   timeEstimate: string;
-  
+
   verifiedSource?: string;
 
   // Squad Mode (Concept 9)
@@ -81,9 +118,10 @@ export interface Mission {
   };
   // Concept 2: Medimate
   medicalData?: {
-    bloodType?: string;
+    bloodType?: BloodType;
     medication?: string;
     isUrgentTransport?: boolean;
+    condition?: string;
   };
   // Strategic Track: Marathon Agent
   projectData?: {
@@ -94,6 +132,14 @@ export interface Mission {
   campaignData?: {
     posterUrl?: string;
   };
+
+  // 311 API Integration
+  autoImported?: boolean;
+  cityReportsId?: string; // Original ID from 311 system
+  citySource?: 'NYC' | 'SF' | 'CHI';
+
+  // Trust & Safety
+  rating?: Rating;
 }
 
 export interface IncidentReport {
@@ -110,17 +156,19 @@ export interface SkillLesson {
 
 // Strategic Track: Creative Autopilot
 export interface CreativeAsset {
-    id: string;
-    type: 'POSTER' | 'FLYER';
-    prompt: string;
-    imageUrl: string;
+  id: string;
+  type: 'POSTER' | 'FLYER';
+  prompt: string;
+  imageUrl: string;
 }
 
 // Concept 1, 6, 10: Community Resources
 export enum ResourceType {
   HOSPITAL = 'HOSPITAL',
   SHELTER = 'SHELTER',
-  FOOD_BANK = 'FOOD_BANK'
+  FOOD_BANK = 'FOOD_BANK',
+  PHARMACY = 'PHARMACY',
+  COMMUNITY_CENTER = 'COMMUNITY_CENTER'
 }
 
 export interface CommunityResource {
@@ -128,8 +176,16 @@ export interface CommunityResource {
   type: ResourceType;
   name: string;
   description: string;
-  coordinates: { lat: number; lng: number };
-  contact: string;
+  coordinates?: { lat: number; lng: number }; // Deprecated, use location
+  location: { lat: number; lng: number; address: string };
+  contact: {
+    phone: string;
+    hours: string;
+  };
+  services: string[];
+  verified: boolean;
+  lastUpdated: Date;
+  cityId?: string;
 }
 
 // Concept 12: Social Impact Startups
@@ -140,4 +196,12 @@ export interface ImpactStartup {
   category: string;
   fundingStatus: 'Seed' | 'Series A' | 'Grant Needed';
   website: string;
+}
+
+export interface Rating {
+  score: number;
+  tags: string[];
+  comments: string;
+  ratedBy: string; // User ID
+  ratedAt: string;
 }

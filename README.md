@@ -316,3 +316,32 @@ To ensure it genuinely helps, add these high-value features early:
 * **Triage queue**: ambiguous requests go to partner review
 * **Privacy modes**: anonymous reporting and approximate location default
 * **Proof templates**: simple checklists that prevent failure in the real world
+
+---
+
+## 9) What to write in Android Studio “Instructions / Notes”
+
+Add a `docs/` folder with:
+
+* `ARCHITECTURE.md` (modules, data flow)
+* `OFFLINE_FIRST.md` (Room + sync rules)
+* `POLICY_ENGINE.md` (risk tiers, rate limits)
+* `MAP_PERFORMANCE.md` (clustering + tile caching)
+* `ACCESSIBILITY_VOICE.md` (voice state machine)
+* `RUNBOOK.md` (how to run, debug, release)
+
+---
+
+## 10) Immediate next step
+
+If you share:
+
+1. Your current package structure, and
+2. Whether you already have a backend (or local-only for hackathon),
+
+I will produce:
+
+* the exact folder/module layout in Android Studio,
+* the Room entity classes (Java),
+* the Retrofit interfaces,
+* and a step-by-step “build order” with commit milestones.
