@@ -5,12 +5,12 @@ import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBNDE__MXUJsA6WfYh2Dk2IqOmfNyT78AE",
-    authDomain: "community-hero-app-2025.firebaseapp.com",
-    projectId: "community-hero-app-2025",
-    storageBucket: "community-hero-app-2025.firebasestorage.app",
-    messagingSenderId: "692496327540",
-    appId: "1:692496327540:web:1f7aa743236a5de9a38221"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
