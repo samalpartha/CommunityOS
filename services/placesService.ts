@@ -136,8 +136,8 @@ export async function searchNearbyPlaces(
                     address: place.vicinity || ''
                 },
                 contact: {
-                    phone: 'Call for info', // Places Search often doesn't return phone, Details API does. Keep simple for now.
-                    hours: place.opening_hours?.open_now ? 'Open now' : 'Check hours'
+                    phone: 'Call for info',
+                    hours: place.opening_hours ? 'Check hours' : 'N/A'
                 },
                 services: getServicesForType(resourceType),
                 verified: true,

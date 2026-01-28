@@ -71,7 +71,7 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                     if (coords) {
                         setUserLocation(coords);
                         const newResources = await getResources(coords, 'zip-' + searchQuery, true); // Force refresh for new location
-                        setResources(newResources.length > 0 ? newResources : INITIAL_RESOURCES);
+                        setResources(newResources); // Don't fallback to demo data for explicit searches
                     } else {
                         setError('Could not find location for that Zip Code');
                     }

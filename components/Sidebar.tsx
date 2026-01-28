@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight">Community<span className="text-indigo-400">Hero</span></h1>
+                    <h1 className="text-xl font-heading tracking-tight">Community<span className="text-indigo-400">Hero</span></h1>
                     <p className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Community OS v2.0</p>
                 </div>
             </div>

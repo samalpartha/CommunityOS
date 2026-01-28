@@ -119,6 +119,23 @@ service cloud.firestore {
       
       allow update, delete: if false;
     }
+
+    // Live Ops: Active Users
+    match /active_users/{userId} {
+      // Allow anyone (even guests) to read active users to stop login screen errors
+      allow read: if true;
+      // Users can update their own status
+      allow create, update: if isOwner(userId);
+      // Optional: Allow delete if they go offline? 
+      allow delete: if isOwner(userId);
+    }
+
+    // Live Ops: System State (Swarm Mode)
+    match /system_state/{docId} {
+        allow read: if true;
+        // Allow any auth user to toggle swarm mode for now (for demo purposes)
+        allow write: if isAuthenticated(); 
+    }
     
     // Default: deny all other access
     match /{document=**} {

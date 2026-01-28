@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { BrainCircuit, Sparkles, TrendingUp, ShieldCheck } from 'lucide-react';
 import { User } from '../types';
+import { StreakCounter } from './index';
 
 interface WelcomeHeroProps {
     user: User;
@@ -48,19 +49,29 @@ const WelcomeHero: React.FC<WelcomeHeroProps> = ({ user, onMarathonClick }) => {
                     <div className="grid grid-cols-3 gap-4 mt-6">
                         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                             <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Impact</p>
-                            <p className="text-2xl font-bold">{user.trustScore}</p>
+                            <p className="text-2xl font-heading font-bold">{user.trustScore}</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                             <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Missions</p>
-                            <p className="text-2xl font-bold">12</p>
+                            <p className="text-2xl font-heading font-bold">12</p>
                         </div>
                         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                             <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Session Hours</p>
-                            <p className="text-2xl font-bold">4.5</p>
+                            <p className="text-2xl font-heading font-bold">4.5</p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Streak Display */}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+                className="flex justify-center"
+            >
+                <StreakCounter days={7} variant="compact" showEffects={true} />
+            </motion.div>
 
             {/* AI Agent Callout -> Campaign Card */}
             <motion.div

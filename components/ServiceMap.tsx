@@ -1,8 +1,8 @@
 import React from 'react';
 import { X, Share2, Map as MapIcon, Globe } from 'lucide-react';
 import MapView from './MapView';
-import { Mission, MissionStatus, User } from '../types';
-import { INITIAL_RESOURCES } from '../constants'; // Just for map completeness
+import { Mission, MissionStatus, User, ActiveUser } from '../types';
+import { INITIAL_RESOURCES } from '../constants';
 
 interface ServiceMapProps {
     isOpen: boolean;
@@ -10,9 +10,11 @@ interface ServiceMapProps {
     user: User;
     allMissions: Mission[];
     onShare?: () => void;
+    isSwarmActive?: boolean;
+    activeUsers?: ActiveUser[];
 }
 
-const ServiceMap: React.FC<ServiceMapProps> = ({ isOpen, onClose, user, allMissions, onShare }) => {
+const ServiceMap: React.FC<ServiceMapProps> = ({ isOpen, onClose, user, allMissions, onShare, isSwarmActive = false, activeUsers = [] }) => {
     if (!isOpen) return null;
 
     // Filter for missions completed by the user (or just verified ones for now as we don't strictly track 'completedBy' in this MVP mock)
@@ -56,14 +58,16 @@ const ServiceMap: React.FC<ServiceMapProps> = ({ isOpen, onClose, user, allMissi
 
                 {/* Map Container */}
                 <div className="flex-1 relative bg-slate-100 dark:bg-slate-950">
-                    {completedMissions.length > 0 ? (
-                        <MapView
-                            missions={completedMissions}
-                            resources={[]} // Don't distract with resources
-                            onMissionClick={(m) => { }}
-                        />
-                    ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                    {/* Render MapView always if sessions allows, or check missions */}
+                    <MapView
+                        missions={isSwarmActive ? allMissions : completedMissions}
+                        resources={[]}
+                        activeUsers={activeUsers}
+                        isSwarmActive={isSwarmActive}
+                        onMissionClick={(m) => { }}
+                    />
+                    {!isSwarmActive && completedMissions.length === 0 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none">
                             <MapIcon className="w-16 h-16 mb-4 opacity-20" />
                             <p>No completed missions yet.</p>
                             <p className="text-sm">Go complete a mission to see your impact!</p>

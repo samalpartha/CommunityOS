@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, updateDoc, doc, query, where, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, query, where, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Mission, MissionStatus, User } from '../types';
 
@@ -27,12 +27,28 @@ export const updateMissionStatus = async (id: string, status: MissionStatus) => 
 
 // Temporary Seeding Function
 import { INITIAL_MISSIONS } from '../constants';
+export const getUserProfile = async (uid: string): Promise<User | null> => {
+    const docRef = doc(db, 'users', uid);
+    const docSnap = await getDocs(query(collection(db, 'users'), where('id', '==', uid))); // Using query as fallback if doc ID differs
+    // Actually best to try direct doc first
+    const directSnap = await import('firebase/firestore').then(mod => mod.getDoc(docRef));
+
+    if (directSnap.exists()) {
+        return directSnap.data() as User;
+    }
+    return null;
+};
+
+export const createUserProfile = async (user: User) => {
+    const userRef = doc(db, 'users', user.id);
+    await setDoc(userRef, user, { merge: true });
+    return user;
+};
+
 // Update user profile
 export const updateProfile = async (user: User) => {
     try {
         const userRef = doc(db, 'users', user.id);
-        // Remove undefined fields if any, or use { merge: true }
-        // Simple spread to update fields
         await setDoc(userRef, user, { merge: true });
         console.log("Updated user profile:", user.id);
     } catch (error) {

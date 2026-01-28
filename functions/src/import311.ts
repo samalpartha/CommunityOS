@@ -13,10 +13,10 @@ const API_ENDPOINTS = {
 
 const ISSUE_MAPPINGS: Record<string, { type: string; title: string; reward: number }> = {
     'Pothole': { type: 'FIX_BOUNTY', title: 'Reported Pothole', reward: 50 },
-    'Graffiti': { type: 'FIX_BOUNTY', title: 'Graffiti Removal', reward: 40 },
-    'Street Light Out': { type: 'FIX_BOUNTY', title: 'Dark Street Alert', reward: 30 },
-    'Dirty Conditions': { type: 'FIX_BOUNTY', title: 'Street Cleanup Needed', reward: 40 },
-    'Blocked Driveway': { type: 'FIX_BOUNTY', title: 'Blocked Driveway Check', reward: 20 },
+    'Graffiti': { type: 'ENVIRONMENTAL', title: 'Graffiti Removal', reward: 40 },
+    'Street Light Out': { type: 'SAFETY_PATROL', title: 'Dark Street Alert', reward: 30 },
+    'Dirty Conditions': { type: 'ENVIRONMENTAL', title: 'Street Cleanup Needed', reward: 40 },
+    'Blocked Driveway': { type: 'SAFETY_PATROL', title: 'Blocked Driveway Check', reward: 20 },
 };
 
 export const importCityReports = functions.pubsub
@@ -44,7 +44,7 @@ export const importCityReports = functions.pubsub
                     const mapping = ISSUE_MAPPINGS[report.complaint_type];
                     if (!mapping) continue;
 
-                    const missionData = {
+                    const baseMissionData = {
                         type: mapping.type,
                         title: mapping.title,
                         description: `Verified 311 Report: ${report.descriptor || report.complaint_type}. Location: ${report.street_name || 'Unknown St'}, ${report.borough || ''}`,
@@ -62,12 +62,29 @@ export const importCityReports = functions.pubsub
                         citySource: 'NYC',
                         verifiedSource: 'NYC 311 Open Data',
                         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        fixData: {
-                            severity: 'MEDIUM'
-                        }
                     };
 
-                    batch.set(missionRef, missionData);
+                    let typeSpecificData = {};
+
+                    if (mapping.type === 'FIX_BOUNTY') {
+                        typeSpecificData = { fixData: { severity: 'MEDIUM' } };
+                    } else if (mapping.type === 'ENVIRONMENTAL') {
+                        typeSpecificData = {
+                            ecoData: {
+                                activityType: 'CLEANUP',
+                                targetMetric: '1 Area'
+                            }
+                        };
+                    } else if (mapping.type === 'SAFETY_PATROL') {
+                        typeSpecificData = {
+                            safetyData: {
+                                patrolRoute: 'Single Point Check',
+                                reportCount: 1
+                            }
+                        };
+                    }
+
+                    batch.set(missionRef, { ...baseMissionData, ...typeSpecificData });
                     newCount++;
                     batchCount++;
 

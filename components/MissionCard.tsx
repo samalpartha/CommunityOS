@@ -1,6 +1,7 @@
 import React from 'react';
 import { Mission, MissionType } from '../types';
-import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle, Users, Activity, BrainCircuit } from 'lucide-react';
+import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle, Users, Activity, BrainCircuit, Leaf, Shield } from 'lucide-react';
+import { Card, Badge, Button } from './index';
 
 interface MissionCardProps {
   mission: Mission;
@@ -11,6 +12,20 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
 
   const getTheme = (type: MissionType) => {
     switch (type) {
+      case MissionType.SAFETY_PATROL:
+        return {
+          bg: 'bg-indigo-50',
+          border: 'border-indigo-200',
+          icon: <Shield className="w-5 h-5 text-indigo-600" />,
+          text: 'text-indigo-700'
+        };
+      case MissionType.ENVIRONMENTAL:
+        return {
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          icon: <Leaf className="w-5 h-5 text-green-600" />,
+          text: 'text-green-700'
+        };
       case MissionType.FOOD_FIT:
         return {
           bg: 'bg-orange-50',
@@ -59,9 +74,11 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
   const theme = getTheme(mission.type);
 
   return (
-    <div
+    <Card
+      variant="mission"
+      hoverable={true}
       onClick={() => onClick(mission)}
-      className={`w-full p-4 mb-3 rounded-xl border ${theme.border} ${theme.bg} shadow-sm active:scale-[0.98] transition-transform cursor-pointer relative overflow-hidden`}
+      className="mb-3"
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2 flex-wrap">
@@ -73,17 +90,15 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
           </span>
           {/* Squad Badge */}
           {mission.squadSize && mission.squadSize > 1 && (
-            <div className="flex items-center gap-1 bg-violet-100 text-violet-700 px-2 py-1 rounded-full text-[10px] font-bold border border-violet-200">
-              <Users className="w-3 h-3" />
-              <span>SQUAD</span>
-            </div>
+            <Badge variant="active" className="text-[10px]">
+              <Users className="w-3 h-3" /> SQUAD
+            </Badge>
           )}
           {/* Marathon Agent Badge */}
           {mission.id.startsWith('marathon') && (
-            <div className="flex items-center gap-1 bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-200">
-              <BrainCircuit className="w-3 h-3" />
-              <span>AGENT PLAN</span>
-            </div>
+            <Badge variant="trustScore" className="text-[10px]">
+              <BrainCircuit className="w-3 h-3" /> AGENT PLAN
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-full shadow-sm border border-slate-100 shrink-0">
@@ -92,7 +107,7 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
         </div>
       </div>
 
-      <h3 className="text-lg font-bold text-slate-800 mb-1 leading-tight">{mission.title}</h3>
+      <h3 className="text-lg font-heading font-bold text-slate-800 mb-1 leading-tight">{mission.title}</h3>
       <p className="text-sm text-slate-600 mb-4 line-clamp-2">{mission.description}</p>
 
       <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
@@ -111,26 +126,26 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
 
         <div className="flex items-center gap-2">
           {mission.urgency === 'HIGH' && (
-            <span className="flex items-center gap-1 text-red-600 font-medium animate-pulse mr-2">
-              <AlertCircle className="w-3 h-3" />
-              Urgent
-            </span>
+            <Badge variant="urgent" className="mr-2">
+              <AlertCircle className="w-3 h-3" /> Urgent
+            </Badge>
           )}
 
           {/* Team Up Button */}
-          <button
+          <Button
             onClick={(e) => {
               e.stopPropagation();
               // Future: Trigger Squad Mode
             }}
-            className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg font-bold transition-colors"
+            variant="secondary"
+            size="sm"
+            className="text-xs"
           >
-            <Users className="w-3 h-3" />
-            Team Up
-          </button>
+            <Users className="w-3 h-3" /> Team Up
+          </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };
 

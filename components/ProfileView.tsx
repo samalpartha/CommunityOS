@@ -4,6 +4,7 @@ import { Wallet, Award, Plus, Sun, Moon, LogOut, HelpCircle, School, CheckCircle
 import ServiceMap from './ServiceMap';
 import SkillTreeModal from './SkillTreeModal';
 import { updateProfile } from '../services/firestoreService';
+import { Button, Badge, Card, ProgressBar } from './index';
 
 interface ProfileViewProps {
     user: User;
@@ -101,29 +102,33 @@ const ProfileView: React.FC<ProfileViewProps> = ({
 
                 {user.role !== UserRole.COUNSELOR && (
                     <>
-                        <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2.5 mb-2 overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2.5 rounded-full" style={{ width: '70%' }}></div>
+                        <div className="mb-4">
+                            <ProgressBar
+                                current={700}
+                                max={1000}
+                                label={`Level 5 → Level 6`}
+                                variant="gradient"
+                                showPercentage={true}
+                            />
                         </div>
-                        <p className="text-xs text-slate-400 mb-2 flex justify-between">
-                            <span>Level 5</span>
-                            <span>700 / 1000 XP to Level 6</span>
-                        </p>
-                        <button
+                        <Button
                             onClick={() => setShowSkillTree(true)}
-                            className="w-full py-2 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1 transition-colors mb-6"
+                            variant="secondary"
+                            size="sm"
+                            className="w-full mb-6"
                         >
                             <Zap className="w-3 h-3" /> View Career Progress (Skill Trees)
-                        </button>
+                        </Button>
                     </>
                 )}
 
                 <div className="flex justify-center gap-8 border-t border-slate-100 dark:border-slate-700 pt-4">
                     <div>
-                        <p className="text-3xl font-black text-slate-900 dark:text-white">{user.trustScore}</p>
+                        <p className="text-3xl font-heading font-black text-slate-900 dark:text-white">{user.trustScore}</p>
                         <p className="text-xs text-slate-400 uppercase tracking-widest">Trust Score</p>
                     </div>
                     <div className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setShowServiceMap(true)}>
-                        <p className="text-3xl font-black text-slate-900 dark:text-white">{missions.filter(m => m.status === 'VERIFIED').length}</p>
+                        <p className="text-3xl font-heading font-black text-slate-900 dark:text-white">{missions.filter(m => m.status === 'VERIFIED').length}</p>
                         <p className="text-xs text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1"><MapIcon className="w-3 h-3" /> Service Map</p>
                     </div>
                 </div>

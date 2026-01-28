@@ -1,4 +1,4 @@
-import { Mission, MissionStatus, MissionType, User, UserRole, CommunityResource, ResourceType, ImpactStartup } from './types';
+import { Mission, MissionStatus, MissionType, User, UserRole, CommunityResource, ResourceType, ImpactStartup, ActiveUser } from './types';
 
 export const CURRENT_USER: User = {
   id: 'u1',
@@ -122,6 +122,40 @@ export const INITIAL_MISSIONS: Mission[] = [
       moduleName: 'Ergonomics 101',
       arOverlay: true
     }
+  },
+  {
+    id: 'm6',
+    type: MissionType.ENVIRONMENTAL,
+    title: 'Riverbank Plastic Cleanup',
+    description: 'Help clear plastic waste from the East River promenade before high tide.',
+    location: 'East River Park',
+    distance: '1.2 mi',
+    coordinates: { lat: 37.7790, lng: -122.4050 },
+    reward: 120,
+    status: MissionStatus.OPEN,
+    urgency: 'MEDIUM',
+    timeEstimate: '1 hr',
+    ecoData: {
+      activityType: 'CLEANUP',
+      targetMetric: '3 Bags'
+    }
+  },
+  {
+    id: 'm7',
+    type: MissionType.SAFETY_PATROL,
+    title: 'School Route Watch',
+    description: 'Stand monitor presence at the intersection of Main & 5th during dismissal to ensure safe crossing.',
+    location: 'Main St & 5th Ave',
+    distance: '0.3 mi',
+    coordinates: { lat: 37.7740, lng: -122.4170 },
+    reward: 75,
+    status: MissionStatus.OPEN,
+    urgency: 'HIGH',
+    timeEstimate: '30 min',
+    safetyData: {
+      patrolRoute: 'Intersection Only',
+      reportCount: 0
+    }
   }
 ];
 
@@ -212,4 +246,13 @@ export const IMPACT_STARTUPS: ImpactStartup[] = [
     fundingStatus: 'Grant Needed',
     website: 'elderjoy.org'
   }
+];
+
+export const MOCK_ACTIVE_USERS: ActiveUser[] = [
+  { id: 'u1', location: { lat: 37.7755, lng: -122.4185 }, role: UserRole.NEIGHBOR, status: 'MOVING', lastActive: 'Now' },
+  { id: 'u2', location: { lat: 37.7739, lng: -122.4200 }, role: UserRole.VERIFIED_VOLUNTEER, status: 'RESPONDING', lastActive: 'Now' },
+  { id: 'u3', location: { lat: 37.7750, lng: -122.4150 }, role: UserRole.STUDENT, status: 'IDLE', lastActive: '2m ago' },
+  { id: 'u4', location: { lat: 37.7725, lng: -122.4190 }, role: UserRole.NEIGHBOR, status: 'MOVING', lastActive: '5m ago' },
+  { id: 'u5', location: { lat: 37.7760, lng: -122.4210 }, role: UserRole.VERIFIED_VOLUNTEER, status: 'RESPONDING', lastActive: 'Now' },
+  { id: 'u6', location: { lat: 37.7745, lng: -122.4160 }, role: UserRole.CITY_ADMIN, status: 'RESPONDING', lastActive: 'Now' },
 ];

@@ -14,11 +14,19 @@ import HelpModal from './components/HelpModal';
 import HourTracker from './components/HourTracker';
 import { MissionCardSkeleton } from './components/Skeleton';
 import { generateLifeSkillLesson, LiveSession, decomposeComplexProject } from './services/geminiService';
+
+import SwarmOverlay from './components/SwarmOverlay';
+import { MOCK_ACTIVE_USERS } from './constants';
+import { ActiveUser, UserRole } from './types';
+import { subscribeToActiveUsers, subscribeToSwarmStatus, setSwarmStatus, updateUserStatus } from './services/liveOpsService';
+import { updateProfile, getUserProfile, createUserProfile } from './services/firestoreService';
 import DirectoryView from './components/DirectoryView';
 import ProfileView from './components/ProfileView';
 import Sidebar from './components/Sidebar';
 import CounselorDashboard from './components/CounselorDashboard';
 import MedimateView from './components/MedimateView';
+import AssistantView from './components/AssistantView';
+import ChatWidget from './components/ChatWidget';
 // ... existing imports ...
 import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit, Moon, Sun, Award, Search, Users, ArrowUpDown, Flame } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -27,7 +35,7 @@ import WelcomeHero from './components/WelcomeHero';
 import MarathonPlanReview from './components/MarathonPlanReview';
 
 import { auth } from './firebaseConfig';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { getMissions, subscribeToMissions, seedMissions } from './services/firestoreService';
 import { saveOfflineMission, getOfflineMissions, syncOfflineMissions } from './services/offlineStorage';
 import { generateCertificate } from './utils/certificateExport';
@@ -53,6 +61,7 @@ const App: React.FC = () => {
     });
     const [isOffline, setIsOffline] = useState(!navigator.onLine);
     const [user, setUser] = useState(CURRENT_USER);
+    const [isDemoMode, setIsDemoMode] = useState(false);
     const [toasts, setToasts] = useState<ToastMessage[]>([]);
     const [darkMode, setDarkMode] = useState(false);
 
@@ -61,19 +70,138 @@ const App: React.FC = () => {
     const [proposedMissions, setProposedMissions] = useState<Mission[] | null>(null);
     const [marathonGoalText, setMarathonGoalText] = useState('');
 
+    // X-Factor: Swarm / Live Ops
+    const [isSwarmActive, setIsSwarmActive] = useState(false);
+    const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]); // Real active users
+
+    // 1. Subscribe to Swarm Status (Global)
+    // 1. Subscribe to Swarm Status (Global)
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        if (isDemoMode) {
+            // Mock swarm status for demo
+            return;
+        }
+
+        const unsubscribe = subscribeToSwarmStatus((status) => {
+            setIsSwarmActive(status);
+            if (status) {
+                // Optional: Alert only on rising edge, or rely on UI to show it
+            }
+        });
+        return () => unsubscribe();
+    }, [isAuthenticated, isDemoMode]);
+
+    // 2. Subscribe to Active Users
+    // 2. Subscribe to Active Users
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        if (isDemoMode) {
+            // Use mock data for demo
+            setActiveUsers(MOCK_ACTIVE_USERS);
+            return;
+        }
+
+        const unsubscribe = subscribeToActiveUsers((users) => {
+            // Filter out current user from the view if desired, or show them too
+            // showing all for now (including self, to confirm it works)
+            setActiveUsers(users);
+        });
+        return () => unsubscribe();
+    }, [isAuthenticated, isDemoMode]);
+
+    // 3. Track & Publish Own Location
+
+    useEffect(() => {
+        if (!isAuthenticated || !user || !user.id || isDemoMode) return;
+
+        const updateLocation = () => {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const { latitude, longitude } = position.coords;
+                    // Only update if we have a valid user ID to prevent permission errors
+                    if (user.id) {
+                        updateUserStatus(user.id, {
+                            id: user.id,
+                            location: { lat: latitude, lng: longitude },
+                            role: user.role || UserRole.NEIGHBOR,
+                            status: isSwarmActive ? 'RESPONDING' : 'IDLE',
+                            lastActive: new Date().toISOString()
+                        });
+                    }
+                }, (error) => {
+                    console.log("Geo error or denied:", error);
+                }, { enableHighAccuracy: true });
+            }
+        };
+
+        // Update immediately
+        updateLocation();
+
+        // Then every 10 seconds
+        const interval = setInterval(updateLocation, 10000);
+        return () => clearInterval(interval);
+    }, [user, isSwarmActive, isAuthenticated, isDemoMode]);
+
+
+    const handleSwarmToggle = () => {
+        // Toggle Global Swarm Satus
+        const newState = !isSwarmActive;
+
+        if (isDemoMode) {
+            setIsSwarmActive(newState);
+            addToast('success', newState ? 'Swarm Initiated (Demo)' : 'Swarm Stand Down (Demo)', 'Simulation active.');
+            return;
+        }
+
+        setSwarmStatus(newState);
+
+        if (newState) {
+            addToast('error', 'SWARM PROTOCOL INITIATED', 'Mobilizing all nearby units.');
+            setActiveTab('MISSIONS'); // Auto-switch context
+            setViewMode('MAP');
+        } else {
+            addToast('success', 'Stand Down', 'Crisis resolved. Returning to normal ops.');
+        }
+    };
+
     // Strategic Track: Voice Mode (Blind Support / Teacher)
     const [voiceMode, setVoiceMode] = useState<'OFF' | 'ACTIVE'>('OFF');
     const liveSessionRef = useRef<LiveSession | null>(null);
 
     // Auth Listener
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user) {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                // setIsAuthenticated(true); // Moved to after profile load to prevent race condition
+                setCurrentUser(firebaseUser);
+
+                // Fetch real profile
+                let profile = await getUserProfile(firebaseUser.uid);
+
+                if (!profile) {
+                    // New User -> Create Profile
+                    const signupRole = localStorage.getItem('signup_role');
+                    const initialRole = signupRole === 'STUDENT' ? UserRole.STUDENT : UserRole.NEIGHBOR;
+
+                    profile = {
+                        ...CURRENT_USER, // Use defaults
+                        id: firebaseUser.uid,
+                        name: firebaseUser.displayName || 'Neighbor',
+                        email: firebaseUser.email || null, // Firestore doesn't like undefined
+                        avatarUrl: firebaseUser.photoURL || CURRENT_USER.avatarUrl,
+                        role: initialRole,
+                        lastLoginDate: new Date().toISOString()
+                    };
+                    await createUserProfile(profile);
+                    localStorage.removeItem('signup_role'); // Clean up
+                }
+
+                setUser(profile);
                 setIsAuthenticated(true);
-                setCurrentUser(user);
-                // Update local user state with real data if possible
-                setUser(prev => ({ ...prev, name: user.displayName || 'Hero', avatarUrl: user.photoURL || prev.avatarUrl }));
-                addToast('success', 'Signed In', `Welcome back, ${user.displayName}!`);
+                addToast('success', 'Signed In', `Welcome back, ${profile.name}!`);
             } else {
                 setIsAuthenticated(false);
                 setCurrentUser(null);
@@ -144,7 +272,7 @@ const App: React.FC = () => {
 
     // Real-time Missions Listener
     useEffect(() => {
-        if (!isAuthenticated || isOffline) return; // Don't fetch if offline
+        if (!isAuthenticated || isOffline || isDemoMode) return; // Don't fetch if offline or demo
         setIsLoadingMissions(true);
         const unsubscribe = subscribeToMissions((realMissions) => {
             if (realMissions.length > 0) {
@@ -157,7 +285,7 @@ const App: React.FC = () => {
 
     // Toast Helper ...
     const addToast = (type: 'success' | 'error', title: string, message: string) => {
-        const id = Date.now().toString();
+        const id = Date.now().toString() + Math.random().toString().slice(2);
         setToasts(prev => [...prev, { id, type, title, message }]);
     };
 
@@ -170,14 +298,35 @@ const App: React.FC = () => {
     };
 
     const handleLogout = async () => {
-        await signOut(auth);
+        if (isDemoMode) {
+            setIsDemoMode(false);
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+            setUser(CURRENT_USER); // Reset to default mock user
+            addToast('success', 'Demo Ended', 'Thanks for testing!');
+        } else {
+            await signOut(auth);
+        }
         setActiveTab('FIND');
         toggleVoiceMode(true);
     };
 
-    const handleDemoTour = () => {
-        setIsAuthenticated(true);
-        addToast('success', 'Demo Tour Started', 'Welcome to Community Hero! Try clicking on a mission.');
+    const handleDemoTour = async () => {
+        try {
+            await signInAnonymously(auth);
+            setIsDemoMode(false);
+            addToast('success', 'Demo Tour Started', 'Welcome to Community Hero! Try clicking on a mission.');
+        } catch (error: any) {
+            console.error("Demo login failed", error);
+            if (error.code === 'auth/admin-restricted-operation') {
+                // Fallback to local demo mode
+                setIsAuthenticated(true);
+                setIsDemoMode(true);
+                addToast('success', 'Demo Mode (Offline)', 'Backend disabled. Running simulation.');
+            } else {
+                addToast('error', 'Demo Failed', 'Could not start demo mode.');
+            }
+        }
     };
 
     // Toggle Voice/Blind Mode (Concept 5)
@@ -382,6 +531,16 @@ const App: React.FC = () => {
                 setUser={setUser}
             />
 
+            {/* DEMO TRIGGER: Hidden in bottom left or accessible via key combo? Let's generic button for now in bottom left if sidebar is collapsed */}
+            <div className="fixed bottom-4 left-4 z-[9999] opacity-0 hover:opacity-100 transition-opacity">
+                <button
+                    onClick={handleSwarmToggle}
+                    className="bg-red-900 text-white text-xs px-2 py-1 rounded"
+                >
+                    Simulate Crisis
+                </button>
+            </div>
+
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col h-screen md:h-full relative overflow-hidden bg-slate-50 dark:bg-slate-900 transition-colors">
 
@@ -542,45 +701,20 @@ const App: React.FC = () => {
                                                 <div className="absolute top-4 left-4 z-[400] bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-2 border border-slate-200 dark:border-slate-700 dark:text-white">
                                                     <MapIcon className="w-3 h-3 text-blue-500" /> Live Community Map
                                                 </div>
-                                                <MapView missions={filteredMissions} resources={INITIAL_RESOURCES} onMissionClick={setSelectedMission} />
+                                                <MapView
+                                                    missions={filteredMissions}
+                                                    resources={INITIAL_RESOURCES}
+                                                    onMissionClick={setSelectedMission}
+                                                    activeUsers={activeUsers}
+                                                    isSwarmActive={isSwarmActive}
+                                                />
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             )}
 
-                            {activeTab === 'VOICE' && (
-                                <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-8 bg-slate-900 text-white relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/20 to-slate-900 pointer-events-none"></div>
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
 
-                                    <div className="relative z-10">
-                                        <motion.div
-                                            initial={{ scale: 0.8, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                                            className="w-32 h-32 bg-indigo-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(79,70,229,0.4)] mb-6 cursor-pointer hover:scale-105 transition-transform"
-                                        >
-                                            <Mic className="w-12 h-12 text-white" />
-                                        </motion.div>
-
-                                        <h2 className="text-2xl font-bold mb-2">Hands-Free Mode</h2>
-                                        <p className="text-slate-400 max-w-xs mx-auto mb-8">
-                                            Experience CommunityOS without touching your screen. Just say "Hey Community" to start.
-                                        </p>
-
-                                        <div className="flex flex-wrap justify-center gap-3">
-                                            <span className="bg-white/10 px-3 py-1.5 rounded-full text-xs font-medium border border-white/10">"Find cleanup missions"</span>
-                                            <span className="bg-white/10 px-3 py-1.5 rounded-full text-xs font-medium border border-white/10">"Report a pothole"</span>
-                                            <span className="bg-white/10 px-3 py-1.5 rounded-full text-xs font-medium border border-white/10">"Check my progress"</span>
-                                        </div>
-                                    </div>
-
-                                    <button onClick={() => setActiveTab('HOME')} className="absolute top-6 left-6 text-slate-400 hover:text-white z-20 font-bold text-sm">
-                                        Back
-                                    </button>
-                                </div>
-                            )}
 
                             {activeTab === 'LEADERBOARD' && <Leaderboard />}
 
@@ -598,7 +732,15 @@ const App: React.FC = () => {
                                     onUpdateUser={setUser}
                                     addToast={addToast}
                                     accessibilitySettings={accessibilitySettings}
-                                    onUpdateAccessibility={(settings) => setAccessibilitySettings(settings)}
+                                    onUpdateAccessibility={setAccessibilitySettings}
+                                />
+                            )}
+
+                            {activeTab === 'VOICE' && (
+                                <AssistantView
+                                    missions={missions}
+                                    onNavigate={(tab) => setActiveTab(tab as any)}
+                                    onSearchMissions={() => setActiveTab('HOME')}
                                 />
                             )}
 
@@ -608,9 +750,9 @@ const App: React.FC = () => {
                                 addToast('success', 'Request Sent', `You have connected with the owner of: ${m.title}`);
                             }} />}
 
-                            {/* Floating Action Button (Mobile) */}
+                            {/* Floating Action Button (Desktop Only - Centered) */}
                             {activeTab === 'HOME' && (
-                                <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-20">
+                                <div className="hidden md:block absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
                                     <button
                                         onClick={() => setIsCreatingReport(true)}
                                         className="bg-black dark:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
@@ -650,41 +792,57 @@ const App: React.FC = () => {
                     </AnimatePresence>
                 </div>
 
+                {/* Floating Chat Widget (Desktop & Mobile) */}
+                <ChatWidget onNavigate={(tab) => setActiveTab(tab as any)} onSearchMissions={() => {
+                    setActiveTab('HOME');
+                    setFilter('ALL');
+                }} />
+
                 {/* Modals/Overlays */}
-                {selectedMission && (
-                    <MissionDetail
-                        mission={selectedMission}
-                        onBack={() => setSelectedMission(null)}
-                        onComplete={handleMissionComplete}
-                        addToast={addToast}
-                        bigButtonMode={accessibilitySettings.bigButtons}
-                    />
-                )}
+                {
+                    selectedMission && (
+                        <MissionDetail
+                            mission={selectedMission}
+                            onBack={() => setSelectedMission(null)}
+                            onComplete={handleMissionComplete}
+                            addToast={addToast}
+                            bigButtonMode={accessibilitySettings.bigButtons}
+                        />
+                    )
+                }
 
-                {isCreatingReport && (
-                    <CreateFixReport
-                        onClose={() => setIsCreatingReport(false)}
-                        onSubmit={handleReportSubmit}
-                        isMarathonMode={isPlanning}
-                        onMarathonGoal={handleMarathonGoal}
-                    />
-                )}
+                {
+                    isCreatingReport && (
+                        <CreateFixReport
+                            onClose={() => setIsCreatingReport(false)}
+                            onSubmit={handleReportSubmit}
+                            isMarathonMode={isPlanning}
+                            onMarathonGoal={handleMarathonGoal}
+                        />
+                    )
+                }
 
-                {showHelp && (
-                    <HelpModal onClose={() => setShowHelp(false)} />
-                )}
+                {
+                    showHelp && (
+                        <HelpModal onClose={() => setShowHelp(false)} />
+                    )
+                }
 
                 {/* Marathon Plan Review Modal */}
-                {proposedMissions && (
-                    <MarathonPlanReview
-                        goal={marathonGoalText}
-                        proposedMissions={proposedMissions}
-                        onConfirm={handleConfirmPlan}
-                        onCancel={() => setProposedMissions(null)}
-                    />
-                )}
+                {
+                    proposedMissions && (
+                        <MarathonPlanReview
+                            goal={marathonGoalText}
+                            proposedMissions={proposedMissions}
+                            onConfirm={handleConfirmPlan}
+                            onCancel={() => setProposedMissions(null)}
+                        />
+                    )
+                }
 
             </main>
+            {/* Swarm Overlay Component */}
+            <SwarmOverlay isActive={isSwarmActive} onDeactivate={handleSwarmToggle} />
         </div>
     );
 };

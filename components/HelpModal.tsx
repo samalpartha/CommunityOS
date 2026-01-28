@@ -19,6 +19,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               </h3>
               <p className="text-sm text-indigo-700">
                 Locate verified community resources like Food Banks, Shelters, and Medical Clinics nearby.
+                <br /><span className="text-xs font-bold mt-1 block">Need help? Ask the Chat Assistant in the bottom right!</span>
               </p>
             </div>
             <ul className="space-y-3 text-sm text-slate-600">
@@ -94,16 +95,58 @@ const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       case 'VOICE':
         return (
           <div className="space-y-4 animate-fadeIn">
-            <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-              <h3 className="font-bold text-red-900 flex items-center gap-2 mb-2">
-                <Mic className="w-5 h-5" /> Voice Mode (Blind Support)
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800">
+              <h3 className="font-bold text-purple-900 dark:text-purple-300 flex items-center gap-2 mb-2">
+                <Mic className="w-5 h-5" /> Voice Mode Assistant
               </h3>
-              <p className="text-sm text-red-700">
-                Hands-free navigation and assistance powered by Gemini Live.
+              <p className="text-sm text-purple-700 dark:text-purple-400">
+                Hands-free voice interface for quick help and navigation.
               </p>
             </div>
-            <p className="text-sm text-slate-600">
-              Activate Voice Mode to interact with the app purely through conversation. The AI can read out nearby missions, describe visual hazards, and guide you turn-by-turn.
+
+            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-full animate-pulse">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <span className="font-bold">Now Live!</span>
+              </div>
+              <p className="text-sm opacity-90 mb-3">
+                Tap the microphone tab to start a real-time conversation.
+              </p>
+              <ul className="text-xs space-y-1 opacity-80 list-disc list-inside">
+                <li>Ask to find nearby missions</li>
+                <li>Get help with cleanup reports</li>
+                <li>Navigation assistance</li>
+              </ul>
+            </div>
+
+
+
+            <div className="space-y-3">
+              <h4 className="font-bold text-slate-900 dark:text-white text-sm">Planned Features:</h4>
+              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                <li className="flex gap-3">
+                  <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400 font-bold">1</div>
+                  <span><strong>Voice Commands:</strong> Navigate the app hands-free with spoken instructions like "Show nearby missions" or "Read resource details"</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400 font-bold">2</div>
+                  <span><strong>Audio Descriptions:</strong> Hear mission details, directions, and verification status read aloud</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400 font-bold">3</div>
+                  <span><strong>Screen Reader Optimization:</strong> Enhanced compatibility with VoiceOver (iOS) and TalkBack (Android)</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-6 h-6 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400 font-bold">4</div>
+                  <span><strong>Turn-by-Turn Audio:</strong> Voice-guided navigation to mission locations</span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-500 italic mt-4">
+              Tip: You can switch back to the main app anytime by saying "Go Home".
             </p>
           </div>
         );

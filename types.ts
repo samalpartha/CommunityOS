@@ -15,7 +15,9 @@ export enum MissionType {
   FIX_BOUNTY = 'FIX_BOUNTY',
   LIFE_SKILL = 'LIFE_SKILL',
   MEDICAL_NEED = 'MEDICAL_NEED', // Concept 2: Medimate
-  PROJECT_MARATHON = 'PROJECT_MARATHON' // Strategic Track: Marathon Agent
+  PROJECT_MARATHON = 'PROJECT_MARATHON', // Strategic Track: Marathon Agent
+  SAFETY_PATROL = 'SAFETY_PATROL', // Crime prevention
+  ENVIRONMENTAL = 'ENVIRONMENTAL' // Environmental habit tracker
 }
 
 export enum MissionStatus {
@@ -133,6 +135,15 @@ export interface Mission {
     posterUrl?: string;
   };
 
+  ecoData?: {
+    activityType: 'RECYCLE' | 'CLEANUP' | 'PLANTING';
+    targetMetric: string;
+  };
+  safetyData?: {
+    patrolRoute: string;
+    reportCount: number;
+  };
+
   // 311 API Integration
   autoImported?: boolean;
   cityReportsId?: string; // Original ID from 311 system
@@ -204,4 +215,12 @@ export interface Rating {
   comments: string;
   ratedBy: string; // User ID
   ratedAt: string;
+}
+
+export interface ActiveUser {
+  id: string;
+  location: { lat: number; lng: number };
+  role: UserRole;
+  status: 'IDLE' | 'MOVING' | 'RESPONDING';
+  lastActive: string;
 }

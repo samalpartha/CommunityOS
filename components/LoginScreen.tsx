@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Mail, Lock, User, PlayCircle, ShieldCheck } from 'lucide-react';
 import { auth, googleProvider } from '../firebaseConfig';
-import { signInWithPopup, getRedirectResult, signInWithRedirect } from 'firebase/auth';
+import { signInWithPopup, getRedirectResult, signInWithRedirect, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 interface LoginScreenProps {
-    onLogin: (provider?: string) => void;
+    onLogin: (provider?: string) => void; // Keeping for legacy/callback if needed, though listeners handle most
     onDemoTour: () => void;
 }
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoTour }) => {
     const [isSignUp, setIsSignUp] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -18,23 +21,46 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoTour }) => {
         getRedirectResult(auth)
             .then((result) => {
                 if (result) {
-                    console.log("Redirect success:", result.user.uid);
-                    // Auth state listener in App.tsx will handle the rest
+                    // User signed in via redirect
                 }
             })
             .catch((err) => console.error(err));
     }, []);
 
+    const handleEmailAuth = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            if (isSignUp) {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                if (fullName) {
+                    await updateProfile(userCredential.user, { displayName: fullName });
+                }
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+            }
+            // App.tsx onAuthStateChanged will handle the rest
+        } catch (err: any) {
+            console.error("Auth Error:", err);
+            let msg = err.message;
+            if (err.code === 'auth/email-already-in-use') msg = 'Email is already taken.';
+            if (err.code === 'auth/wrong-password') msg = 'Incorrect password.';
+            if (err.code === 'auth/user-not-found') msg = 'No account found with this email.';
+            if (err.code === 'auth/weak-password') msg = 'Password should be at least 6 characters.';
+            if (err.code === 'auth/operation-not-allowed') msg = 'Email/Password Sign-in is not enabled in Firebase Console.';
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleGoogleLogin = async () => {
         setIsLoading(true);
         setError(null);
         try {
-            // Using Popup as it proved more reliable in your environment
             await signInWithPopup(auth, googleProvider);
-            // Success! App.tsx handles the state change.
         } catch (err: any) {
             console.error("Popup Error:", err);
-            // Fallback to redirect if popup fails drastically
             if (err.code === 'auth/popup-blocked') {
                 try {
                     await signInWithRedirect(auth, googleProvider);
@@ -142,21 +168,62 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoTour }) => {
                         {isSignUp && (
                             <div className="relative">
                                 <User className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                                <input type="text" placeholder="Full Name" className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                                <input
+                                    type="text"
+                                    placeholder="Full Name"
+                                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                />
                             </div>
                         )}
                         <div className="relative">
                             <Mail className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                            <input type="email" placeholder="Email Address" className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                            <input
+                                type="email"
+                                placeholder="Email Address"
+                                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                            />
                         </div>
                         <div className="relative">
                             <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-                            <input type="password" placeholder="Password" className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
                         </div>
+                        {isSignUp && (
+                            <div className="flex items-center gap-2 px-1">
+                                <input
+                                    type="checkbox"
+                                    id="studentRole"
+                                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            localStorage.setItem('signup_role', 'STUDENT');
+                                        } else {
+                                            localStorage.removeItem('signup_role');
+                                        }
+                                    }}
+                                />
+                                <label htmlFor="studentRole" className="text-sm text-slate-600 cursor-pointer select-none">
+                                    I am a Student Volunteer
+                                </label>
+                            </div>
+                        )}
                     </div>
 
-                    <button onClick={() => onLogin('Email')} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2 mb-6">
-                        {isSignUp ? 'Sign Up' : 'Sign In'} <ArrowRight className="w-4 h-4" />
+                    <button
+                        onClick={handleEmailAuth}
+                        disabled={isLoading}
+                        className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2 mb-6 disabled:opacity-50"
+                    >
+                        {isLoading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')} <ArrowRight className="w-4 h-4" />
                     </button>
 
                     <div className="relative mb-6">

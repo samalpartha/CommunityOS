@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mission, MissionStatus, MissionType, IncidentReport, SkillLesson } from '../types';
-import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck, AlertTriangle } from 'lucide-react';
+import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck, AlertTriangle, Leaf } from 'lucide-react';
 import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, LiveSession, verifyFixCompletion } from '../services/geminiService';
 import GuardianTimer from './GuardianTimer';
 import RatingModal from './RatingModal';
@@ -46,7 +46,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                 // Use Gemini Pro to generate the lesson based on the module name/context
                 const lesson = await generateLifeSkillLesson(mission.skillData.moduleName);
                 setSkillLesson(lesson);
-                if (lesson) setChecklistState(new Array(lesson.checklist.length).fill(false));
+                if (lesson?.checklist?.length) setChecklistState(new Array(lesson.checklist.length).fill(false));
                 setIsThinking(false);
                 setIsLoading(false);
             } else if (mission.type === MissionType.LONELY_MINUTES && mission.lonelyData) {
@@ -227,6 +227,30 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                                 </div>
                             </div>
                         )}
+
+                        {/* Environmental Data */}
+                        {mission.type === MissionType.ENVIRONMENTAL && mission.ecoData && (
+                            <div className="mt-4 bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 p-3 rounded-lg">
+                                <h5 className="text-xs font-bold text-green-800 dark:text-green-300 uppercase mb-2 flex items-center gap-2">
+                                    <Leaf className="w-3 h-3" /> Impact Goal
+                                </h5>
+                                <div className="text-sm text-green-700 dark:text-green-200">
+                                    <span className="font-bold">{mission.ecoData.activityType}:</span> Target {mission.ecoData.targetMetric}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Safety Patrol Data */}
+                        {mission.type === MissionType.SAFETY_PATROL && mission.safetyData && (
+                            <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-3 rounded-lg">
+                                <h5 className="text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-2 flex items-center gap-2">
+                                    <Shield className="w-3 h-3" /> Patrol Details
+                                </h5>
+                                <div className="text-sm text-indigo-700 dark:text-indigo-200">
+                                    <span className="font-bold">Route:</span> {mission.safetyData.patrolRoute}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex gap-3">
@@ -244,8 +268,8 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
         }
 
         if (status === MissionStatus.ACCEPTED || status === MissionStatus.IN_PROGRESS) {
-            // Accessibility: Big Button Mode (Default for IN_PROGRESS)
-            if (!isProofMode && status === MissionStatus.IN_PROGRESS) {
+            // Accessibility: Big Button Mode (Default for IN_PROGRESS or when enabled in settings)
+            if (!isProofMode && (status === MissionStatus.IN_PROGRESS || bigButtonMode)) {
                 return (
                     <div className="flex flex-col gap-4 mt-8 min-h-[50vh] justify-center">
                         <div className="text-center mb-6">
