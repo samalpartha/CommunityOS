@@ -2,7 +2,7 @@
 
 ## Working Name: We already have
 
-**Goal:** One mobile app that helps people **find support, give support, report community issues, build habits, and access accessibility-first tools** using a shared **Mission + Trust + Proof** backbone.
+**Goal:** One app that helps people **find support, give support, report community issues, build habits, and access accessibility-first tools** using a shared **Mission + Trust + Proof** backbone.
 
 ---
 
