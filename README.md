@@ -1,349 +1,165 @@
-# Unified App Blueprint (Android Studio + Java)
+# Community Hero - The Community Operating System
 
-## Working Name: We already have
-
-**Goal:** One app that helps people **find support, give support, report community issues, build habits, and access accessibility-first tools** using a shared **Mission + Trust + Proof** backbone.
+**A unified platform to find support, give help, and build resilient communities.**
 
 ### 🚀 Live Demo: [https://community-hero-prod.web.app](https://community-hero-prod.web.app)
 
 ---
 
-## 1) Unified Product Structure (No duplication)
+## 📖 About
 
-### Feature Lanes (all share the same backend and data model)
+**Community Hero** is a "Community Operating System" designed to bridge the gap between those in need and those who can help. It combines a real-time directory of essential services with gamified civic engagement ("Missions") and accessibility-first tools like Voice Mode.
 
-1. **Find Help Near Me**
-   Food banks, shelters, community services, hospitals.
-2. **Donate & Route Essentials**
-   Food donation + logistics via hubs (food banks, churches, shelters, schools).
-3. **Medimate Exchange**
-   Blood donor matching + medicine vendor listing (logistics only; no medical advice).
-4. **Safety Reports**
-   Non-vigilante crime/safety incident reporting with moderation and privacy controls.
-5. **Environment Habits**
-   Small habit missions + local challenges.
-6. **Accessibility Voice Assistant**
-   Voice-to-email (blind-friendly) + future voice navigation.
-7. **Internal Team Helpdesk**
-   Skill-based matching within a closed org domain (optional module).
-8. **Volunteer Org Map**
-   Global map + local volunteering missions.
-9. **Social Impact Discovery**
-   Startups + funding + events.
-
-**Core rule:** Everything is either a **Directory item** (static resource) or a **Mission** (action with proof). This prevents feature sprawl.
+**Core Philosophy:** Mission + Trust + Proof.
 
 ---
 
-## 2) Android Studio Project Setup (Java, modular)
+## 🏗 System Architecture
 
-### Modules
+### 1. High-Level Overview
 
-* `app` — navigation shell + common UI
-* `core_common` — utilities, logging, constants
-* `core_auth` — Google sign-in, roles
-* `core_network` — Retrofit/OkHttp, interceptors, caching
-* `core_db` — Room, DAOs, migrations
-* `core_location` — fused location, geohash, geofencing
-* `core_policy` — moderation + risk tiers + rate limits
-* `core_proof` — proof object, signing, media upload
-* `feature_directory` — services/hospitals/volunteer orgs
-* `feature_missions` — create/accept/complete/verify mission flows
-* `feature_voice` — TTS/STT + voice email
-* `feature_environment` — habits/challenges
-* `feature_helpdesk` — internal matching
-* `feature_discovery` — startups/funding/events
+The system follows a serverless architecture leveraging **Firebase** for backend services and **React** for a responsive frontend.
 
-### Dependencies (proven, performant)
+```mermaid
+graph TD
+    User([End User]) <--> Frontend[React PWA \n(Firebase Hosting)]
+    
+    subgraph "Firebase Backend (Serverless)"
+        Frontend <--> Auth[Authentication]
+        Frontend <--> Firestore[Firestore DB]
+        Frontend <--> Functions[Cloud Functions \n(Node.js)]
+        Functions <--> Storage[Cloud Storage]
+    end
+    
+    subgraph "External Services"
+        Functions <--> GMaps[Google Places API]
+        Frontend <--> Gemini[Gemini Flash 1.5 API \n(Voice & AI)]
+    end
+```
 
-* **Retrofit + OkHttp** (timeouts, retry, cache)
-* **Room** (offline-first)
-* **WorkManager** (uploads, sync)
-* **ViewModel + LiveData**
-* **Glide** (images)
-* **Google Maps + Places**
-* **Firebase Auth + FCM** (optional but recommended for hackathon velocity)
-* **Crashlytics + Performance Monitoring** (recommended)
+### 2. Frontend Architecture
 
----
+Built with **Vite + React + TypeScript**. Logic is separated into reusable Services and UI Components.
 
-## 3) Unified Data Model (Room)
+```mermaid
+graph LR
+    subgraph "Views"
+        Home[Home / Dashboard]
+        Map[Service Map]
+        Directory[Directory List]
+        Mission[Mission Control]
+        Voice[Voice Assistant]
+    end
 
-You need two pillars:
+    subgraph "Services Layer"
+        Places[placesService.ts \n(Google Maps Proxy)]
+        City[cityDataService.ts \n(311 & Mock Data)]
+        Gemini[geminiService.ts \n(AI Websocket)]
+        AuthService[authService.ts]
+    end
 
-## A) Directory entities (Find Help, Hospitals, Volunteer Orgs)
+    Home --> AuthService
+    Map --> Places
+    Directory --> Places
+    Mission --> City
+    Voice --> Gemini
+```
 
-### `DirectoryItem`
+### 3. Backend & Data Flow
 
-* `id` (String)
-* `type` (FOOD_BANK, SHELTER, HOSPITAL, VOLUNTEER_ORG, COMMUNITY_SERVICE, PHARMACY_VENDOR)
-* `name`
-* `address`
-* `lat`, `lng`
-* `phone`, `website`
-* `hoursJson`
-* `tagsJson` (diet support, languages, services)
-* `source` (GooglePlaces / PartnerUpload / Curated)
-* `updatedAt`
+**Cloud Functions** act as a secure proxy for third-party APIs and handle background synchronization.
 
-### `Hub`
+```mermaid
+sequenceDiagram
+    participant Client as Frontend App
+    participant Function as Cloud Function (Proxy)
+    participant Firestore as Firestore DB
+    participant Google as Google Places API
 
-Pickup/drop safe points for donations and distribution.
-
-* `hubId`
-* `orgId`
-* `name`, `address`, `lat`, `lng`
-* `hoursJson`
-* `verificationStatus` (PENDING/VERIFIED)
-* `allowedMissionTypesJson`
-
-## B) Mission entities (everything “actionable”)
-
-### `Mission`
-
-* `missionId`
-* `lane` (ESSENTIALS, PEOPLE, PLACES, HEALTH, ENVIRONMENT, HELP_DESK)
-* `type` (DONATION_PICKUP, DONATION_DROP, CHECK_IN_CALL, HAZARD_REPORT, FIX_VERIFY, HABIT, BLOOD_REQUEST, MED_REQUEST, INTERNAL_HELP)
-* `title`, `description`
-* `category`, `severity`
-* `riskTier` (0–3)
-* `status` (DRAFT, POSTED, MATCHED, IN_PROGRESS, COMPLETED, VERIFIED, CLOSED, DISPUTED)
-* `creatorUserId`
-* `assignedUserId` (nullable)
-* `orgId` (nullable)
-* `hubId` (nullable)
-* `lat`, `lng`, `geoHash`
-* `timeWindowStart`, `timeWindowEnd`
-* `constraintsJson` (allergens, language, mobility, etc.)
-* `createdAt`, `updatedAt`
-
-### `Proof`
-
-* `proofId`
-* `missionId`
-* `type` (BEFORE_PHOTO, AFTER_PHOTO, HANDOFF_QR, SESSION_COMPLETE)
-* `mediaUri` (local) / `mediaUrl` (remote)
-* `capturedAt`
-* `captureLat`, `captureLng`
-* `hash` (sha256 of file)
-* `signerUserId`
-* `signature` (mock first, real later)
-* `verificationStatus` (PENDING/ACCEPTED/REJECTED)
-* `notes`
-
-### `Incident`
-
-* `incidentId`
-* `missionId`
-* `reporterUserId`
-* `subjectUserId` or `orgId`
-* `severity`
-* `reason`
-* `status`
-* `createdAt`
+    Note over Client, Google: Location-Based Search Flow
+    Client->>Function: Call proxyGooglePlaces(lat, lng, type)
+    Function->>Google: Fetch Places (API Key Protected)
+    Google-->>Function: JSON Response
+    Function-->>Client: Cleaned Data
+    Client->>Firestore: Cache Result (Optional)
+```
 
 ---
 
-## 4) Core Flows (One UX pattern across all lanes)
+## ✨ Key Features
 
-### Home screen: “What can I do in 10 minutes?”
+### 🔍 Find Help (Directory Lane)
 
-Tabs (not separate apps):
+- **Real-time Map:** Locate Verified Food Banks, Shelters, and Hospitals.
+- **Smart Filters:** "Open Now", "Wheelchair Accessible".
+- **Mesh Mode:** Offline-ready data indicators for low-connectivity areas.
 
-* **Find** (Directory)
-* **Missions** (action)
-* **Post** (create mission)
-* **Voice** (accessibility)
-* **Profile**
+### 🛡️ Give Support (Missions Lane)
 
-Mission cards are consistent:
+- **Civic Action:** Gamified missions (e.g., "Report Hazard", "Donate Food").
+- **Verification:** "Before & After" photo proof for trust.
+- **Impact Tracking:** Earn "Impact Credits" and badges.
 
-* lane icon + time estimate + distance
-* safety tier icon
-* proof required icon
-* “Accept” / “Complete” / “Upload Proof”
+### 🎙️ Accessibility (Voice Lane)
 
----
-
-## 5) Safety, Trust, and Moderation (must-have for “help people”)
-
-### Risk tiers (enforced in code)
-
-* **Tier 0:** no-contact (hazard report, environment habit check, directory browsing)
-* **Tier 1:** public-space handoffs only (hub pickup/drop)
-* **Tier 2:** audio-only interactions (check-in calls)
-* **Tier 3:** in-home/high vulnerability (disabled by default)
-
-### Policy-as-code (`core_policy`)
-
-Implement a central evaluator:
-`PolicyDecision evaluate(User, Mission, Action)`
-
-Rules examples:
-
-* Tier 1 handoff requires verified hub or org.
-* Tier 2 requires verified phone + no incidents in last 30 days.
-* Any flagged content → mission stays OPEN and goes to triage.
-* Rate limits: new user can accept max N missions/day.
-
-### Gemini integration (only where it matters)
-
-* Text moderation: spam, harassment, solicitation
-* Optional: image sanity checks (blur explicit content, irrelevant images)
-* Do not market as “diagnosis”; it’s safety moderation.
+- **Hands-Free Mode:** powered by **Gemini Multimodal Live API**.
+- **Natural Conversation:** Ask "Where is the nearest food bank?" and get spoken directions.
+- **Visual Context:** The AI can "see" your screen to help explain complex forms.
 
 ---
 
-## 6) Optimization Plan (Android Studio specific)
+## 🛠 Tech Stack
 
-### Map + directory performance
-
-* Use marker clustering
-* Query by bounding box / radius
-* Cache by geoHash tiles (Room)
-* Lazy load details and images
-
-### Missions performance
-
-* Use Paging 3 for feeds
-* Avoid heavy JSON parsing on main thread
-* Use DiffUtil in RecyclerView
-
-### Media optimization
-
-* Resize before upload (e.g., max 1280px)
-* Compress JPEG quality (70–80)
-* Upload in WorkManager with retry/backoff
-* Store thumbnails locally
-
-### Offline-first sync
-
-* Directory sync: daily + manual refresh
-* Mission sync: near-real-time via polling or FCM
-* Proof upload: background
-
-### App stability
-
-* Strict timeouts on OkHttp
-* Circuit breaker: if AI moderation fails, default to safe route
-* Crashlytics + performance traces
+- **Frontend:** React, TypeScript, Vite, TailwindCSS (via custom CSS)
+- **Backend:** Firebase (Auth, Firestore, Cloud Functions).
+- **AI:** Google Gemini Flash 1.5 (Multimodal Live API).
+- **Maps:** Google Maps Platform (Places API, Geocoding).
+- **Build/Deploy:** GitHub Actions, Firebase Hosting.
 
 ---
 
-## 7) Unified Implementation Tasks (Executable Task Board)
+## 🚀 Getting Started
 
-## Phase 1: Foundation (Backbone)
+### Prerequisites
 
-1. Create modules and base navigation
-2. Implement `core_network` (Retrofit, OkHttp cache, interceptors)
-3. Implement `core_db` (Room entities + DAOs)
-4. Implement `core_location` (fused provider + geoHash utility)
-5. Implement `core_policy` (risk tier checks + rate limits)
-6. Implement `core_proof` (media capture + file hashing)
+- Node.js 18+
+- Firebase CLI (`npm install -g firebase-tools`)
 
-### Phase 1 Exit Criteria
+### Installation
 
-* App runs, logs in, stores directory and missions locally.
-* Core policy gates are enforced server-side or locally if no backend.
+1. **Clone the repo**
 
-## Phase 2: Directory Lane (Find Help)
+   ```bash
+   git clone https://github.com/samalpartha/CommunityOS.git
+   cd CommunityOS
+   ```
 
-1. Implement Places search + filters
-2. Directory list + map view with clustering
-3. Directory item details page
-4. Favorite/save and offline access
+2. **Install dependencies**
 
-### Phase 2 Exit Criteria
+   ```bash
+   npm install
+   ```
 
-* User can find food banks/hospitals/shelters near them with stable performance.
+3. **Set up Environment Variables**
+   Create a `.env` file with your Firebase and Google API keys:
 
-## Phase 3: Missions Lane (Places + Essentials MVP)
+   ```env
+   VITE_FIREBASE_API_KEY=...
+   VITE_GOOGLE_PLACES_API_KEY=...
+   VITE_GEMINI_API_KEY=...
+   ```
 
-1. Hazard report mission with before-photo
-2. Owner routing (simple: category → org queue)
-3. Completion + after-photo proof
-4. Verification + closure
-5. Essentials: hub-based pickup/drop missions with QR
+4. **Run Locally**
 
-### Phase 3 Exit Criteria
+   ```bash
+   npm run dev
+   ```
 
-* Full lifecycle: report → route → complete → verify → close with proof.
+### Deployment
 
-## Phase 4: Voice Lane (Accessibility MVP)
+**Deploy to Production:**
 
-1. Voice state machine: To → Subject → Message → Confirm
-2. TTS prompts + SpeechRecognizer
-3. JavaMail sending via WorkManager
-4. Accessibility QA (TalkBack, large tap target, haptics)
-
-### Phase 4 Exit Criteria
-
-* A blind user can send an email using voice-only flow reliably.
-
-## Phase 5: Medimate MVP (Logistics only)
-
-1. Request blood / request medicine missions (structured forms)
-2. Match donors/vendors near me
-3. Contact masking or controlled reveal (basic)
-4. Proof of handoff (optional)
-
-### Phase 5 Exit Criteria
-
-* Requests can be posted and matched without exposing sensitive data.
-
-## Phase 6: Environment Habits
-
-1. Habit missions with streak tracking
-2. Local challenges (geo-limited)
-3. Reminders via WorkManager
-
-### Phase 6 Exit Criteria
-
-* Users can adopt habits through small mission loops.
-
-## Phase 7: Optional Modules
-
-* Internal helpdesk (Google workspace sign-in + topic matching)
-* Social impact discovery (startups/funding/events)
-* Global volunteer map (10k orgs with tile caching)
-
----
-
-## 8) “Help People” Upgrades (what makes this meaningful)
-
-To ensure it genuinely helps, add these high-value features early:
-
-* **Hubs**: safe pickup/drop points (churches, schools, shelters)
-* **Referral links**: partners create links to intake requests
-* **Triage queue**: ambiguous requests go to partner review
-* **Privacy modes**: anonymous reporting and approximate location default
-* **Proof templates**: simple checklists that prevent failure in the real world
-
----
-
-## 9) What to write in Android Studio “Instructions / Notes”
-
-Add a `docs/` folder with:
-
-* `ARCHITECTURE.md` (modules, data flow)
-* `OFFLINE_FIRST.md` (Room + sync rules)
-* `POLICY_ENGINE.md` (risk tiers, rate limits)
-* `MAP_PERFORMANCE.md` (clustering + tile caching)
-* `ACCESSIBILITY_VOICE.md` (voice state machine)
-* `RUNBOOK.md` (how to run, debug, release)
-
----
-
-## 10) Immediate next step
-
-If you share:
-
-1. Your current package structure, and
-2. Whether you already have a backend (or local-only for hackathon),
-
-I will produce:
-
-* the exact folder/module layout in Android Studio,
-* the Room entity classes (Java),
-* the Retrofit interfaces,
-* and a step-by-step “build order” with commit milestones.
+```bash
+npm run build
+firebase deploy
+```
