@@ -241,7 +241,7 @@ Rules examples:
 5. Implement `core_policy` (risk tier checks + rate limits)
 6. Implement `core_proof` (media capture + file hashing)
 
-**Exit criteria**
+### Phase 1 Exit Criteria
 
 * App runs, logs in, stores directory and missions locally.
 * Core policy gates are enforced server-side or locally if no backend.
@@ -253,7 +253,7 @@ Rules examples:
 3. Directory item details page
 4. Favorite/save and offline access
 
-**Exit criteria**
+### Phase 2 Exit Criteria
 
 * User can find food banks/hospitals/shelters near them with stable performance.
 
@@ -265,7 +265,7 @@ Rules examples:
 4. Verification + closure
 5. Essentials: hub-based pickup/drop missions with QR
 
-**Exit criteria**
+### Phase 3 Exit Criteria
 
 * Full lifecycle: report → route → complete → verify → close with proof.
 
@@ -276,7 +276,7 @@ Rules examples:
 3. JavaMail sending via WorkManager
 4. Accessibility QA (TalkBack, large tap target, haptics)
 
-**Exit criteria**
+### Phase 4 Exit Criteria
 
 * A blind user can send an email using voice-only flow reliably.
 
@@ -287,7 +287,7 @@ Rules examples:
 3. Contact masking or controlled reveal (basic)
 4. Proof of handoff (optional)
 
-**Exit criteria**
+### Phase 5 Exit Criteria
 
 * Requests can be posted and matched without exposing sensitive data.
 
@@ -297,7 +297,7 @@ Rules examples:
 2. Local challenges (geo-limited)
 3. Reminders via WorkManager
 
-**Exit criteria**
+### Phase 6 Exit Criteria
 
 * Users can adopt habits through small mission loops.
 
