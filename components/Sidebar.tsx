@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { Search, Map as MapIcon, Plus, Mic, User as UserIcon, Sun, Moon, HelpCircle, LogOut, ShieldCheck, Heart, Sparkles } from 'lucide-react';
-import HourTracker from './HourTracker';
+import { Search, Map as MapIcon, Plus, Mic, User as UserIcon, Sun, Moon, HelpCircle, LogOut, ShieldCheck, Heart, Sparkles, Palette } from 'lucide-react';
 import { generateCertificate } from '../utils/certificateExport';
 import { seedMissions } from '../services/firestoreService';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -79,8 +78,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         >
             {/* Header - Fixed */}
             <div className="mb-6 flex items-center gap-2 shrink-0">
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-indigo-500/20 shadow-lg">
-                    <Sparkles className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-md border-2 border-red-600 overflow-hidden">
+                    <img src="/logo.png" alt="Community Hero Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                     <h1 className="text-xl font-heading tracking-tight">Community<span className="text-indigo-400">Hero</span></h1>
@@ -141,6 +140,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                             onClick={() => setActiveTab('PROFILE')}
                         />
 
+                        <SidebarItem
+                            id="CREATIVE"
+                            label="Creative Studio"
+                            icon={Palette}
+                            active={activeTab === 'CREATIVE'}
+                            onClick={() => setActiveTab('CREATIVE')}
+                            colorClass="bg-pink-500 shadow-pink-500/30"
+                        />
+
                         {user.role === UserRole.COUNSELOR && (
                             <SidebarItem
                                 id="COUNSELOR"
@@ -153,26 +161,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                         )}
                     </div>
                 </LayoutGroup>
-
-                {/* Hour Tracker Widget */}
-                <AnimatePresence>
-                    {(user.role === UserRole.STUDENT || user.studentData) && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <HourTracker
-                                user={user}
-                                onExportCertificate={() => {
-                                    generateCertificate(user);
-                                    addToast('success', 'Certificate Downloaded', 'Your volunteer certificate has been saved as a PDF!');
-                                }}
-                            />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
 
             {/* Footer Section - Fixed */}

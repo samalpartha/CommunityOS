@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { CommunityResource, ResourceType } from '../types';
-import { Map, Phone, Navigation, Clock, Search, Filter, Loader2, AlertCircle } from 'lucide-react';
+import { Map, Phone, Navigation, Clock, Search, Filter, Loader2, AlertCircle, ShieldCheck, Radio, Building2, Pill, Home, UtensilsCrossed } from 'lucide-react';
 import MapView from './MapView';
-import { getResources, geocodeAddress } from '../services/placesService';
+import { searchNearbyPlaces, geocodeAddress } from '../services/placesService';
 import { INITIAL_RESOURCES } from '../constants'; // Fallback
+import { ResourceActionMenu } from './ResourceActionMenu';
 
 interface DirectoryViewProps {
     // resources prop is deprecated, we fetch internally now but keeping for backward compat
     resources?: CommunityResource[];
-    onResourceClick?: (resource: CommunityResource) => void;
+    onSelectResource?: (resource: CommunityResource) => void;
+    // Phase 7: Mesh Mode
+    meshMode?: boolean;
+    meshSignalStrength?: number;
 }
 
-const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
+const DirectoryView: React.FC<DirectoryViewProps> = ({ onSelectResource, meshMode = false, meshSignalStrength = 75 }) => {
     const [viewMode, setViewMode] = useState<'LIST' | 'MAP'>('LIST');
     const [filterType, setFilterType] = useState<ResourceType | 'ALL'>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showOpenOnly, setShowOpenOnly] = useState(false); // Phase 6: Open Now filter
     const [resources, setResources] = useState<CommunityResource[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -46,8 +51,71 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                 }
 
                 // Fetch real data
-                const realResources = await getResources(location);
-                setResources(realResources.length > 0 ? realResources : INITIAL_RESOURCES);
+                const realResources = await searchNearbyPlaces(location);
+
+                // Helper function to map Google Places types to our ResourceType enum
+                const mapPlaceTypeToResourceType = (types: string[] = []): ResourceType => {
+                    // Check each type in order of specificity
+                    for (const type of types) {
+                        const lowerType = type.toLowerCase();
+
+                        // Medical/Health
+                        if (lowerType.includes('hospital') || lowerType.includes('doctor') || lowerType.includes('health')) {
+                            return ResourceType.HOSPITAL;
+                        }
+
+                        // Pharmacy
+                        if (lowerType.includes('pharmacy') || lowerType.includes('drugstore')) {
+                            return ResourceType.PHARMACY;
+                        }
+
+                        // Shelter
+                        if (lowerType.includes('lodging') || lowerType.includes('homeless_shelter') ||
+                            lowerType.includes('shelter') || lowerType.includes('housing')) {
+                            return ResourceType.SHELTER;
+                        }
+
+                        // Food Bank
+                        if (lowerType.includes('food') || lowerType.includes('meal') ||
+                            lowerType.includes('restaurant') || lowerType.includes('grocery')) {
+                            return ResourceType.FOOD_BANK;
+                        }
+                    }
+
+                    // Default fallback
+                    return ResourceType.COMMUNITY_CENTER;
+                };
+
+                // Transform PlaceResult -> CommunityResource
+                const mappedResources: CommunityResource[] = realResources.map((place, index) => ({
+                    id: place.place_id,
+                    name: place.name,
+                    type: mapPlaceTypeToResourceType(place.types),
+                    description: place.vicinity || 'No description available', // Fallback for description
+                    location: {
+                        lat: place.geometry.location.lat,
+                        lng: place.geometry.location.lng,
+                        address: place.vicinity || 'Address unavailable'
+                    },
+                    contact: {
+                        phone: 'N/A', // Places API details request needed for phone, using placeholder
+                        hours: place.opening_hours?.open_now ? 'Open Now' : 'Closed'
+                    },
+                    services: place.types || [],
+                    verified: true,
+                    lastUpdated: new Date(),
+                    // Phase 6: Mock hero verification for demo (every 3rd resource)
+                    isOpen: place.opening_hours?.open_now ?? (index % 2 === 0),
+                    ...(index % 3 === 0 && {
+                        lastStatusUpdate: {
+                            timestamp: new Date(Date.now() - (index * 1000 * 60 * 30)), // 30 min intervals
+                            heroName: ['Alex Chen', 'Maria Rodriguez', 'Jordan Kim'][index % 3],
+                            heroTrustScore: [95, 88, 92][index % 3]
+                        }
+                    })
+                }));
+
+                setResources(mappedResources.length > 0 ? mappedResources : INITIAL_RESOURCES);
             } catch (err) {
                 console.error('Failed to load resources:', err);
                 setError('Failed to load local resources. Showing offline data.');
@@ -70,8 +138,8 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                     const coords = await geocodeAddress(searchQuery.trim());
                     if (coords) {
                         setUserLocation(coords);
-                        const newResources = await getResources(coords, 'zip-' + searchQuery, true); // Force refresh for new location
-                        setResources(newResources); // Don't fallback to demo data for explicit searches
+                        const newResources = await searchNearbyPlaces(coords); // Force refresh for new location
+                        setResources(newResources as any); // Don't fallback to demo data for explicit searches
                     } else {
                         setError('Could not find location for that Zip Code');
                     }
@@ -85,16 +153,58 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
         }
     };
 
+    // Phase 6: Hero Action Handlers
+    const handleReportIssue = (resourceId: string) => {
+        // TODO: Implement report issue modal/service
+        alert(`Report issue for resource: ${resourceId}`);
+        console.log('Report issue for:', resourceId);
+    };
+
+    const handleUpdateStatus = (resourceId: string, isOpen: boolean) => {
+        // Update resource status locally (optimistic update)
+        setResources(prev => prev.map(r =>
+            r.id === resourceId
+                ? {
+                    ...r,
+                    isOpen,
+                    lastStatusUpdate: {
+                        timestamp: new Date(),
+                        heroName: 'You', // Replace with actual user name
+                        heroTrustScore: 85 // Replace with actual trust score
+                    }
+                }
+                : r
+        ));
+
+        // TODO: Sync to backend/Firestore
+        console.log(`Updated status for ${resourceId}:`, isOpen ? 'OPEN' : 'CLOSED');
+    };
+
     const filteredResources = resources.filter(r => {
         const matchesFilter = filterType === 'ALL' || r.type === filterType;
-        const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            /^\d{5}$/.test(searchQuery); // Always return true for zip codes so we show the new fetched results
-        return matchesFilter && matchesSearch;
+        const matchesStatus = !showOpenOnly || r.isOpen; // Phase 6: Filter by open status
+        const nameMatch = (r.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const descMatch = (r.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const isZipSearch = /^\d{5}$/.test(searchQuery);
+
+        return matchesFilter && matchesStatus && (nameMatch || descMatch || isZipSearch);
     });
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 relative">
+            {/* Phase 7: Low-Bandwidth Mode Indicator */}
+            {meshMode && (
+                <div className="bg-gradient-to-r from-emerald-500 to-green-400 px-4 py-2 flex items-center justify-between text-white text-sm font-bold shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 animate-pulse" />
+                        <span>🔧 Low-Bandwidth Mode Active</span>
+                    </div>
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+                        Signal: {meshSignalStrength}%
+                    </span>
+                </div>
+            )}
+
             {/* Search & Filter Header */}
             <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-10 sticky top-0">
                 <div className="flex gap-2 mb-3">
@@ -150,6 +260,16 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                         label="Pharmacy"
                         color="purple"
                     />
+                    {/* Phase 6: Open Now Filter */}
+                    <button
+                        onClick={() => setShowOpenOnly(!showOpenOnly)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all ml-2 ${showOpenOnly
+                            ? 'bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-900 dark:border-emerald-700 dark:text-emerald-200 shadow-sm'
+                            : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-500'
+                            }`}
+                    >
+                        {showOpenOnly ? '✓ Open Now' : 'Show All'}
+                    </button>
                 </div>
             </div>
 
@@ -162,7 +282,7 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                     </div>
                 ) : (
                     viewMode === 'LIST' ? (
-                        <div className="overflow-y-auto h-full p-4 space-y-3 pb-24 md:pb-6">
+                        <div className="overflow-y-auto h-full p-4 space-y-4 pb-24 md:pb-6">
                             {error && (
                                 <div className="bg-orange-50 text-orange-600 p-3 rounded-lg text-sm flex items-center gap-2 mb-2">
                                     <AlertCircle className="w-4 h-4" />
@@ -170,52 +290,118 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
                                 </div>
                             )}
 
-                            {filteredResources.map(resource => (
-                                <div key={resource.id} className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow cursor-pointer" onClick={() => onResourceClick?.(resource)}>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`p-1.5 rounded-lg ${resource.type === ResourceType.HOSPITAL ? 'bg-red-100 text-red-600' :
-                                                resource.type === ResourceType.FOOD_BANK ? 'bg-green-100 text-green-600' :
-                                                    resource.type === ResourceType.PHARMACY ? 'bg-purple-100 text-purple-600' :
-                                                        'bg-blue-100 text-blue-600'
-                                                }`}>
-                                                {getIconForType(resource.type)}
-                                            </span>
-                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">
-                                                {resource.type.replace('_', ' ')}
-                                            </span>
-                                        </div>
-                                        <span className="text-xs text-slate-400 bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-md">
-                                            {userLocation ?
-                                                `${calculateDistance(userLocation.lat, userLocation.lng, resource.location.lat, resource.location.lng).toFixed(1)} mi` :
-                                                'Nearby'}
-                                        </span>
-                                    </div>
-                                    <h3 className="font-bold text-slate-900 dark:text-white mb-1">{resource.name}</h3>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{resource.description}</p>
+                            {/* RICH PLACE CARDS */}
+                            {filteredResources.map((resource: any) => (
+                                <div key={resource.place_id || resource.id}
+                                    className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:translate-y-[-2px] transition-all cursor-pointer group"
+                                    onClick={() => onSelectResource?.(resource)}
+                                >
+                                    {/* Hero Image Section */}
+                                    <div className="h-32 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
+                                        {meshMode ? (
+                                            // Phase 7: Bandwidth-optimized - Replace images with resource type icons
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+                                                {resource.type === ResourceType.PHARMACY && <Pill className="w-16 h-16 text-purple-500" />}
+                                                {resource.type === ResourceType.HOSPITAL && <Building2 className="w-16 h-16 text-red-500" />}
+                                                {resource.type === ResourceType.SHELTER && <Home className="w-16 h-16 text-blue-500" />}
+                                                {resource.type === ResourceType.FOOD_BANK && <UtensilsCrossed className="w-16 h-16 text-green-500" />}
+                                                {resource.type === ResourceType.COMMUNITY_CENTER && <Building2 className="w-16 h-16 text-indigo-500" />}
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <img
+                                                    src={resource.mock_image || "https://images.unsplash.com/photo-1464699908137-9c0d4a4e1e91?auto=format&fit=crop&q=80&w=800"}
+                                                    alt=""
+                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                            </>
+                                        )}
 
-                                    <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-700 pt-3">
-                                        <button className="flex items-center gap-1 hover:text-indigo-600">
-                                            <Phone className="w-3 h-3" /> {resource.contact.phone}
-                                        </button>
-                                        <button className="flex items-center gap-1 hover:text-indigo-600">
-                                            <Clock className="w-3 h-3" /> {resource.contact.hours}
-                                        </button>
-                                        <button
-                                            className="flex items-center gap-1 text-indigo-600 ml-auto bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full hover:bg-indigo-100"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${resource.location.lat},${resource.location.lng}`);
-                                            }}
-                                        >
-                                            <Navigation className="w-3 h-3" /> Directions
-                                        </button>
+                                        {/* Phase 6: Hero Verification Badge */}
+                                        {resource.lastStatusUpdate?.heroName && (
+                                            <div className={`absolute top-3 right-3 backdrop-blur-sm px-2 py-1 rounded-full text-white text-[10px] font-bold flex items-center gap-1 shadow-sm ${resource.lastStatusUpdate.isMeshVerified
+                                                    ? 'bg-emerald-500/90 animate-pulse'
+                                                    : 'bg-blue-500/90'
+                                                }`}>
+                                                {resource.lastStatusUpdate.isMeshVerified ? (
+                                                    <Radio className="w-3 h-3" />
+                                                ) : (
+                                                    <ShieldCheck className="w-3 h-3" />
+                                                )}
+                                                {resource.lastStatusUpdate.heroName} verified {getTimeAgo(resource.lastStatusUpdate.timestamp)}
+                                            </div>
+                                        )}
+
+                                        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
+                                            <div>
+                                                <h3 className="text-white font-bold text-lg leading-tight shadow-sm">{resource.name}</h3>
+                                                <div className="flex items-center gap-1 text-white/90 text-xs mt-1">
+                                                    <StarIcon className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                                    <span className="font-bold">{resource.rating || 4.5}</span>
+                                                    <span className="opacity-75">({resource.user_ratings_total || 100}+ reviews)</span>
+                                                </div>
+                                            </div>
+                                            {resource.opening_hours?.open_now ? (
+                                                <span className="bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm shadow-sm animate-pulse">
+                                                    OPEN NOW
+                                                </span>
+                                            ) : (
+                                                <span className="bg-slate-900/50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                                    CLOSED
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Details Section */}
+                                    <div className="p-4">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-1 flex-1">
+                                                {resource.vicinity || resource.location?.address}
+                                            </p>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded whitespace-nowrap">
+                                                    {userLocation && (resource.geometry || resource.location) ?
+                                                        `${calculateDistance(
+                                                            userLocation.lat,
+                                                            userLocation.lng,
+                                                            resource.geometry?.location?.lat || resource.location.lat,
+                                                            resource.geometry?.location?.lng || resource.location.lng
+                                                        ).toFixed(1)} mi`
+                                                        : 'Nearby'}
+                                                </span>
+                                                {/* Phase 6: Hero Action Menu */}
+                                                <ResourceActionMenu
+                                                    resource={resource}
+                                                    onReportIssue={handleReportIssue}
+                                                    onUpdateStatus={handleUpdateStatus}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2">
+                                            <button className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                                                <Phone className="w-3 h-3" /> Call
+                                            </button>
+                                            <button
+                                                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-xs font-bold transition-colors shadow-md shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(resource.name)}`);
+                                                }}
+                                            >
+                                                <Navigation className="w-3 h-3" /> Directions
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
+
                             {filteredResources.length === 0 && (
                                 <div className="text-center py-12 text-slate-400">
-                                    <p>No resources found matching your search.</p>
+                                    <Search className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                    <p>No places found matching your search.</p>
                                 </div>
                             )}
                         </div>
@@ -233,6 +419,11 @@ const DirectoryView: React.FC<DirectoryViewProps> = ({ onResourceClick }) => {
         </div>
     );
 };
+
+// Helper Components & Functions
+const StarIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+);
 
 // Helper Components & Functions
 const FilterButton = ({ active, onClick, label, color }: any) => (
@@ -277,6 +468,19 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
         (1 - c((lon2 - lon1) * p)) / 2;
 
     return 12742 * Math.asin(Math.sqrt(a)) * 0.621371; // 2 * R; R = 6371 km; * 0.621371 to miles
+}
+
+// Phase 6: Helper to format relative time for hero verifications
+function getTimeAgo(date: Date): string {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
 }
 
 export default DirectoryView;

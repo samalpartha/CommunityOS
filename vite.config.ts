@@ -9,8 +9,15 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       host: '0.0.0.0',
       headers: {
-        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+        'Cross-Origin-Opener-Policy': 'unsafe-none',
         'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      },
+      proxy: {
+        '/api/google': {
+          target: 'https://maps.googleapis.com/maps/api',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/google/, ''),
+        },
       },
     },
     plugins: [react()],

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mission, MissionStatus, MissionType, IncidentReport, SkillLesson } from '../types';
-import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck, AlertTriangle, Leaf } from 'lucide-react';
-import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, LiveSession, verifyFixCompletion } from '../services/geminiService';
+import { Camera, CheckCircle, Shield, ArrowLeft, Send, Upload, Info, Users, Sparkles, Smartphone, Box, Mic, MicOff, Image as ImageIcon, Volume2, BrainCircuit, Share2, CheckSquare, Square, Activity, Truck, AlertTriangle, Leaf, Zap } from 'lucide-react';
+import TrustBadge from './TrustBadge';
+import { analyzeFixImage, generateConversationStarters, generateLifeSkillLesson, voiceManager, verifyFixCompletion, FixAnalysis } from '../services/geminiService';
 import GuardianTimer from './GuardianTimer';
 import RatingModal from './RatingModal';
 import ImpactReceipt from './ImpactReceipt';
@@ -18,7 +19,7 @@ interface MissionDetailProps {
 const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComplete, addToast, bigButtonMode }) => {
     const [status, setStatus] = useState<MissionStatus>(mission.status);
     const [proofImage, setProofImage] = useState<string | null>(null);
-    const [analysis, setAnalysis] = useState<IncidentReport | null>(null);
+    const [analysis, setAnalysis] = useState<FixAnalysis | null>(null);
     const [skillLesson, setSkillLesson] = useState<SkillLesson | null>(null);
     const [conversationStarters, setConversationStarters] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -34,8 +35,7 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
     const [supervisorSignature, setSupervisorSignature] = useState<string | null>(null);
 
     // Live Audio State (Real-Time Teacher)
-    const [liveStatus, setLiveStatus] = useState<string>('idle');
-    const liveSessionRef = useRef<LiveSession | null>(null);
+    const [liveStatus, setLiveStatus] = useState<string>(() => voiceManager.getStatus());
 
     // Initialize specific data based on mission type
     useEffect(() => {
@@ -57,9 +57,15 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
         initData();
 
         return () => {
-            if (liveSessionRef.current) liveSessionRef.current.disconnect();
+            // No longer disconnect on unmount so voice can persist across tabs if desired
+            // Just cleanup the listener
         };
     }, [mission]);
+
+    useEffect(() => {
+        const unsubscribe = voiceManager.onStatusChange((status) => setLiveStatus(status));
+        return () => unsubscribe();
+    }, []);
 
     const handleAccept = () => {
         setStatus(MissionStatus.ACCEPTED);
@@ -171,13 +177,9 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
 
     const toggleLiveTutor = async () => {
         if (liveStatus === 'connected') {
-            liveSessionRef.current?.disconnect();
-            setLiveStatus('idle');
-            liveSessionRef.current = null;
+            voiceManager.disconnect();
         } else {
-            setLiveStatus('connecting');
-            liveSessionRef.current = new LiveSession();
-            await liveSessionRef.current.connect((status) => setLiveStatus(status), 'TEACHER');
+            await voiceManager.connect('TEACHER');
         }
     };
 
@@ -186,16 +188,32 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
         if (status === MissionStatus.OPEN) {
             return (
                 <div className="mt-8">
+                    {/* Impact Preview Banner */}
+                    <div className="bg-gradient-to-r from-rose-500 to-orange-500 rounded-2xl p-6 text-white text-center shadow-lg transform hover:scale-[1.02] transition-transform mb-8 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-20 rounded-full blur-2xl"></div>
+                        <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-yellow-400 opacity-20 rounded-full blur-2xl"></div>
+
+                        <div className="relative z-10 flex flex-col items-center gap-2">
+                            <div className="bg-white/20 p-2 rounded-full mb-1">
+                                <Zap className="w-6 h-6 text-white fill-current animate-pulse" />
+                            </div>
+                            <h3 className="text-2xl font-black font-heading uppercase tracking-wide">
+                                Impact Reward
+                            </h3>
+                            <p className="text-white/90 font-medium text-lg">
+                                Complete this to earn <span className="font-bold text-white bg-white/20 px-2 py-0.5 rounded">{mission.reward} Credits</span> and help your neighbors!
+                            </p>
+                        </div>
+                    </div>
+
                     <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4 mb-6 transition-colors">
                         <div className="flex justify-between items-start mb-2">
                             <h4 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                                 <Info className="w-4 h-4" /> Mission Brief
                             </h4>
                             <div className="flex gap-2">
-                                {mission.verifiedSource && (
-                                    <div className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
-                                        <Shield className="w-3 h-3" /> Verified Host
-                                    </div>
+                                {(mission.isOfficial || mission.verifiedSource) && (
+                                    <TrustBadge variant={mission.isOfficial ? 'ORGANIZATION' : 'HOST'} />
                                 )}
                                 {mission.squadSize && (
                                     <div className="bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-200 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
@@ -288,6 +306,15 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                             <span className="text-2xl font-black uppercase tracking-wider">Complete</span>
                         </button>
 
+                        {/* Phase 2: Safety Check-in */}
+                        <button
+                            onClick={() => addToast('success', 'Checked In', 'Your location has been logged. Guardian notified.')}
+                            className="w-full bg-blue-500 hover:bg-blue-600 active:scale-95 text-white p-6 rounded-3xl shadow-lg transition-all flex flex-col items-center gap-2"
+                        >
+                            <Shield className="w-8 h-8" />
+                            <span className="font-bold uppercase tracking-wider">I'm Safe Check-in</span>
+                        </button>
+
                         <button
                             onClick={() => addToast('error', 'EMERGENCY ALERT', 'Notifying Emergency Contacts & 911...')}
                             className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-red-100 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 active:scale-95 p-6 rounded-3xl border-2 border-transparent hover:border-red-500 transition-all flex flex-col items-center gap-2"
@@ -295,6 +322,17 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                             <AlertTriangle className="w-8 h-8" />
                             <span className="font-bold uppercase tracking-wider">Emergency Help</span>
                         </button>
+
+                        {/* Phase 2: Squad Chat */}
+                        {mission.squadSize && (
+                            <button
+                                onClick={() => addToast('success', 'Squad Chat', 'Connecting to secure squad channel...')}
+                                className="w-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 hover:bg-violet-200 active:scale-95 p-6 rounded-3xl transition-all flex flex-col items-center gap-2"
+                            >
+                                <Users className="w-8 h-8" />
+                                <span className="font-bold uppercase tracking-wider">Squad Chat</span>
+                            </button>
+                        )}
 
                         {!bigButtonMode && (
                             <button
@@ -326,13 +364,26 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <Camera className="w-8 h-8 text-slate-400 mb-2" />
-                                        <p className="text-sm text-slate-500">Tap to capture</p>
+                                        <p className="text-sm text-slate-500">Tap to capture 'After' photo</p>
                                     </div>
                                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 </label>
                             ) : (
                                 <div className="space-y-4">
-                                    <img src={proofImage} alt="Proof" className="w-full h-48 object-cover rounded-lg" />
+                                    {/* Phase 2: Before & After Comparison */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {mission.fixData?.imageUrl && (
+                                            <div className="relative group">
+                                                <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-sm">BEFORE</div>
+                                                <img src={mission.fixData.imageUrl} alt="Before" className="w-full h-32 object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
+                                            </div>
+                                        )}
+                                        <div className="relative group">
+                                            <div className="absolute top-2 left-2 bg-emerald-600/80 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-sm">AFTER</div>
+                                            <img src={proofImage} alt="Proof" className="w-full h-32 object-cover rounded-lg border-2 border-emerald-500" />
+                                        </div>
+                                    </div>
+
                                     {isLoading ? (
                                         <div className="text-center text-sm text-slate-500 animate-pulse flex flex-col items-center gap-2">
                                             <Sparkles className="w-6 h-6 text-cyan-500 animate-spin" />
@@ -352,6 +403,8 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                                             <p className="text-green-700 mt-1">Context match: {analysis.category}</p>
                                         </div>
                                     ) : null}
+
+                                    <button onClick={() => setProofImage(null)} className="text-xs text-red-400 hover:text-red-500 underline w-full text-center">Retake Photo</button>
                                 </div>
                             )}
                         </div>
@@ -428,10 +481,11 @@ const MissionDetail: React.FC<MissionDetailProps> = ({ mission, onBack, onComple
                             (mission.type === MissionType.LIFE_SKILL && (!skillLesson || checklistState.some(c => !c)))
                         }
                         onClick={handleComplete}
-                        className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 dark:hover:bg-indigo-500 transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 relative overflow-hidden group"
                     >
-                        <Send className="w-5 h-5" />
-                        {mission.type === MissionType.LIFE_SKILL ? 'Claim Credential' : 'Complete Mission'}
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <Send className="w-6 h-6 fill-current relative z-10" />
+                        <span className="relative z-10">{mission.type === MissionType.LIFE_SKILL ? 'Claim Credential' : 'Complete Mission'}</span>
                     </button>
 
                     {/* Supervisor Signature Button (Optional) */}

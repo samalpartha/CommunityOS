@@ -144,5 +144,6 @@ export const counselorApproval = functions.https.onRequest(async (req, res) => {
 // Export resource sync function
 export { syncResourcesDaily } from './syncPlaces';
 export { importCityReports } from './import311';
+export { proxyGooglePlaces, proxyGeocode } from './placesProxy';
 
 

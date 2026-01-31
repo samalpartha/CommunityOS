@@ -4,6 +4,8 @@
 
 **Goal:** One app that helps people **find support, give support, report community issues, build habits, and access accessibility-first tools** using a shared **Mission + Trust + Proof** backbone.
 
+### 🚀 Live Demo: [https://community-hero-prod.web.app](https://community-hero-prod.web.app)
+
 ---
 
 ## 1) Unified Product Structure (No duplication)

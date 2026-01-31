@@ -61,7 +61,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoTour }) => {
             await signInWithPopup(auth, googleProvider);
         } catch (err: any) {
             console.error("Popup Error:", err);
-            if (err.code === 'auth/popup-blocked') {
+            // Fallback to redirect for common popup blockers or close actions
+            if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
                 try {
                     await signInWithRedirect(auth, googleProvider);
                 } catch (redirectErr: any) {
@@ -124,8 +125,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onDemoTour }) => {
                 <div className="hidden md:flex flex-col justify-between w-1/2 bg-slate-50 p-12 border-r border-slate-100">
                     <div>
                         <div className="flex items-center gap-2 mb-8">
-                            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
-                                <ShieldCheck className="w-6 h-6" />
+                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-md border-2 border-red-600 overflow-hidden">
+                                <img src="/logo.png" alt="Community Hero" className="w-full h-full object-cover" />
                             </div>
                             <span className="font-bold text-xl text-slate-800 tracking-tight">Community Hero</span>
                         </div>

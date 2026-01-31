@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.counselorApproval = exports.verifyCertificate = void 0;
+exports.proxyGeocode = exports.proxyGooglePlaces = exports.importCityReports = exports.syncResourcesDaily = exports.counselorApproval = exports.verifyCertificate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -154,4 +154,12 @@ exports.counselorApproval = functions.https.onRequest(async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+// Export resource sync function
+var syncPlaces_1 = require("./syncPlaces");
+Object.defineProperty(exports, "syncResourcesDaily", { enumerable: true, get: function () { return syncPlaces_1.syncResourcesDaily; } });
+var import311_1 = require("./import311");
+Object.defineProperty(exports, "importCityReports", { enumerable: true, get: function () { return import311_1.importCityReports; } });
+var placesProxy_1 = require("./placesProxy");
+Object.defineProperty(exports, "proxyGooglePlaces", { enumerable: true, get: function () { return placesProxy_1.proxyGooglePlaces; } });
+Object.defineProperty(exports, "proxyGeocode", { enumerable: true, get: function () { return placesProxy_1.proxyGeocode; } });
 //# sourceMappingURL=index.js.map

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Mission, MissionType } from '../types';
-import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle, Users, Activity, BrainCircuit, Leaf, Shield } from 'lucide-react';
+import { MapPin, Clock, Zap, Heart, Wrench, Utensils, BookOpen, AlertCircle, Users, Activity, BrainCircuit, Leaf, Shield, Box } from 'lucide-react';
 import { Card, Badge, Button } from './index';
 
 interface MissionCardProps {
@@ -92,6 +92,18 @@ const MissionCard: React.FC<MissionCardProps> = ({ mission, onClick }) => {
           {mission.squadSize && mission.squadSize > 1 && (
             <Badge variant="active" className="text-[10px]">
               <Users className="w-3 h-3" /> SQUAD
+            </Badge>
+          )}
+          {/* Smart Resource Routing: Inventory Match */}
+          {mission.type === MissionType.FOOD_FIT && (
+            <Badge variant="success" className="text-[10px]">
+              <Box className="w-3 h-3" /> FITS BAG (5kg)
+            </Badge>
+          )}
+          {/* Smart Resource Routing: Efficiency Route */}
+          {mission.distance !== 'N/A' && mission.distance.includes('0.1') && (
+            <Badge variant="trustScore" className="text-[10px] bg-cyan-100 text-cyan-800 border-cyan-200">
+              <Zap className="w-3 h-3" /> +50 PTS EFFICIENT
             </Badge>
           )}
           {/* Marathon Agent Badge */}

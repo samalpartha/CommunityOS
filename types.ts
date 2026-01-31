@@ -37,6 +37,15 @@ export enum UserRole {
   CITY_ADMIN = 'CITY_ADMIN',
 }
 
+// Phase 2: Hero Specializations
+export enum HeroSpecialization {
+  ECO_WARRIOR = 'ECO_WARRIOR',
+  TECH_FIXER = 'TECH_FIXER',
+  CARE_GIVER = 'CARE_GIVER',
+  SAFETY_GUARD = 'SAFETY_GUARD',
+  TEACHER = 'TEACHER'
+}
+
 export interface Certificate {
   id: string;
   type: 'BRONZE' | 'SILVER' | 'GOLD' | 'CUSTOM';
@@ -65,6 +74,10 @@ export interface User {
     pendingHours: number;
     certificates: Certificate[];
   };
+
+  // Phase 2: Squad Dynamics
+  specializations?: HeroSpecialization[];
+
 
   // Gamification (Concept 13)
   streak: number;
@@ -153,10 +166,50 @@ export interface Mission {
   rating?: Rating;
 }
 
+// Phase 5: Safety
+export enum IncidentReportType {
+  THEFT = 'THEFT',
+  SUSPICIOUS = 'SUSPICIOUS',
+  HAZARD = 'HAZARD',
+  MEDICAL_EMERGENCY = 'MEDICAL_EMERGENCY',
+  OTHER = 'OTHER'
+}
+
 export interface IncidentReport {
-  category: string;
-  severity: string;
+  id: string;
+  type: IncidentReportType;
   description: string;
+  location: string;
+  timestamp: Date;
+  sender: string; // User ID
+  communityLevel?: 'CITY' | 'DISTRICT' | 'NEIGHBORHOOD';
+}
+
+// Phase 7: Mesh Network Node
+export interface MeshNode {
+  id: string;
+  location: { lat: number; lng: number };
+  signalStrength: number; // 0-100
+  connectedPeers: number;
+  lastSeen: Date;
+  isRelay: boolean; // Can relay messages to other nodes
+  batteryLevel?: number; // Optional battery status
+}
+
+// Phase 7: Local Mesh Broadcast Message
+export interface LocalBroadcast {
+  id: string;
+  message: string;
+  type: 'HELP_NEEDED' | 'RESOURCE_AVAILABLE' | 'HAZARD_ALERT' | 'GENERAL';
+  location?: { lat: number; lng: number };
+  timestamp: Date;
+  hopCount: number; // How many mesh hops from origin
+  expiresAt: Date;
+  sender: {
+    id: string;
+    name: string;
+    trustScore?: number;
+  };
 }
 
 export interface SkillLesson {
@@ -197,6 +250,46 @@ export interface CommunityResource {
   verified: boolean;
   lastUpdated: Date;
   cityId?: string;
+
+  // Phase 6: Directory UX Enhancements
+  isOpen?: boolean;
+  lastStatusUpdate?: {
+    timestamp: Date;
+    verifiedBy?: string; // Hero user ID
+    heroName?: string;
+    heroTrustScore?: number;
+    isMeshVerified?: boolean; // Phase 7: Data came from mesh network
+  };
+  vitals?: ResourceVitals;
+  isMeshServed?: boolean; // Set by client based on fetch source
+
+  // Phase 7: Mesh Mode Enhancements
+  meshNodeProximity?: number; // Distance to nearest mesh node in meters
+  lastMeshUpdate?: {
+    timestamp: Date;
+    meshNodeId: string;
+    signalStrength: number; // 0-100
+  };
+}
+
+// Phase 6: Resource vitals for real-time capacity and wait tracking
+export interface ResourceVitals {
+  // Shelters
+  capacity?: {
+    total: number;
+    available: number;
+    lastUpdated: Date;
+  };
+
+  // Food Banks
+  lastDelivery?: Date;
+  currentLineWait?: number; // minutes
+
+  // Medical/Pharmacy
+  waitTime?: number; // minutes
+
+  // General
+  customStatus?: string; // e.g., "No supplies", "Power outage"
 }
 
 // Concept 12: Social Impact Startups

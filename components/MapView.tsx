@@ -129,6 +129,38 @@ const MapView: React.FC<MapViewProps> = ({ missions, resources, activeUsers = []
             });
         }
 
+        // 3. Render Resources (Real Data)
+        if (resources.length > 0 && !isSwarmActive) {
+            resources.forEach(resource => {
+                let iconChar = '📍';
+                let colorClass = 'bg-slate-500';
+
+                // Map resource types to visuals
+                switch (resource.type) {
+                    case 'FOOD_BANK': iconChar = '🍎'; colorClass = 'bg-orange-500'; break;
+                    case 'HOSPITAL': iconChar = '🏥'; colorClass = 'bg-red-600'; break;
+                    case 'SHELTER': iconChar = '🏠'; colorClass = 'bg-indigo-500'; break;
+                }
+
+                const resourceIcon = L.divIcon({
+                    className: 'resource-marker',
+                    html: `<div class="w-8 h-8 ${colorClass} rounded-full border-2 border-white shadow-md flex items-center justify-center text-white text-lg hover:scale-110 transition-transform">
+                            ${iconChar}
+                           </div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                    popupAnchor: [0, -32]
+                });
+
+                L.marker([resource.location.lat, resource.location.lng], { icon: resourceIcon })
+                    .bindPopup(`<div class="font-sans text-center text-slate-800">
+                        <h3 class="font-bold text-sm">${resource.name}</h3>
+                        <p class="text-xs text-slate-500">${resource.type.replace('_', ' ')}</p>
+                    </div>`)
+                    .addTo(markersLayer);
+            });
+        }
+
         return () => {
             markersLayer.remove();
         };

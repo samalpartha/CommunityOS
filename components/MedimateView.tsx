@@ -228,7 +228,7 @@ const MedimateView: React.FC<MedimateViewProps> = ({ user, onConnect }) => {
             </div>
 
             {/* Floating Create Button */}
-            <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-20">
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
                 <button
                     className="bg-red-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
                     onClick={() => onConnect?.({ ...BLOOD_REQUESTS[0], id: 'new' })} // Placeholder for create

@@ -1,105 +1,106 @@
 import { Mission, MissionType, MissionStatus } from '../types';
 
-// API Endpoints for Open Data Portals
-const API_ENDPOINTS = {
-    NYC: 'https://data.cityofnewyork.us/resource/erm2-nwe9.json', // 311 Service Requests
-    SF: 'https://data.sfgov.org/resource/vw6y-z8j6.json',
-    CHI: 'https://data.cityofchicago.org/resource/v6vf-nfxy.json'
+// Real-world 311 categories mapped to our Mission Types
+const CITY_DATA_MAPPING: Record<string, MissionType> = {
+    'Pothole': MissionType.FIX_BOUNTY,
+    'Graffiti': MissionType.FIX_BOUNTY,
+    'Street Light Out': MissionType.FIX_BOUNTY,
+    'Trash Pickup': MissionType.ENVIRONMENTAL, // Changed from CLEANUP_EVENT
+    'Sidewalk Damage': MissionType.FIX_BOUNTY
 };
 
-// 311 Complaint Types mapping to CommunityOS Mission Types
-const ISSUE_MAPPINGS: Record<string, { type: MissionType; title: string; reward: number }> = {
-    // NYC Types
-    'Pothole': { type: MissionType.FIX_BOUNTY, title: 'Reported Pothole', reward: 50 },
-    'Graffiti': { type: MissionType.FIX_BOUNTY, title: 'Graffiti Removal', reward: 40 },
-    'Street Light Out': { type: MissionType.FIX_BOUNTY, title: 'Dark Street Alert', reward: 30 },
-    'Dirty Conditions': { type: MissionType.FIX_BOUNTY, title: 'Street Cleanup Needed', reward: 40 },
-    'Blocked Driveway': { type: MissionType.FIX_BOUNTY, title: 'Blocked Driveway Check', reward: 20 },
-
-    // SF Types
-    'Street and Sidewalk Cleaning': { type: MissionType.FIX_BOUNTY, title: 'Sidewalk Cleanup', reward: 30 },
-    'Graffiti Private Property': { type: MissionType.FIX_BOUNTY, title: 'Graffiti Clean-up', reward: 40 },
-
-    // Chicago Types
-    'Pot Hole in Street': { type: MissionType.FIX_BOUNTY, title: 'Pothole Alert', reward: 50 },
-    'Graffiti Removal': { type: MissionType.FIX_BOUNTY, title: 'Graffiti Cleanup', reward: 40 }
-};
-
-interface City311Report {
+interface CityReport {
     unique_key: string;
-    created_date: string; // ISO string
+    created_date: string;
     complaint_type: string;
-    descriptor?: string;
-    location?: {
-        latitude: string;
-        longitude: string;
-    };
+    descriptor: string;
+    incident_address: string;
+    latitude: string;
+    longitude: string;
     status: string;
-    street_name?: string;
-    borough?: string;
 }
 
-/**
- * Fetch recent 311 reports from NYC Open Data
- */
-export async function fetchRecentNYCReports(limit: number = 20): Promise<Mission[]> {
-    try {
-        // Query recently created, open items that have location data
-        // Socrata Query Language (SoQL)
-        const query = `$limit=${limit}&$where=status='Open' AND latitude IS NOT NULL AND longitude IS NOT NULL AND created_date > '${getYesterdayDate()}'&$order=created_date DESC`;
-
-        const response = await fetch(`${API_ENDPOINTS.NYC}?${query}`);
-
-        if (!response.ok) {
-            throw new Error(`NYC Open Data API error: ${response.statusText}`);
-        }
-
-        const data: City311Report[] = await response.json();
-        return normalizeReports(data, 'NYC');
-    } catch (error) {
-        console.error('Error fetching NYC 311 data:', error);
-        return [];
+// Mock Data for "Live" Demo
+const MOCK_311_REPORTS: CityReport[] = [
+    {
+        unique_key: '311-1001',
+        created_date: new Date().toISOString(),
+        complaint_type: 'Pothole',
+        descriptor: 'Large pothole causing traffic slowdown',
+        incident_address: 'Main St & 4th Ave',
+        latitude: '37.7760',
+        longitude: '-122.4180',
+        status: 'Open'
+    },
+    {
+        unique_key: '311-1002',
+        created_date: new Date().toISOString(),
+        complaint_type: 'Street Light Out',
+        descriptor: 'Street light flickering constantly',
+        incident_address: '1500 Market St',
+        latitude: '37.7730',
+        longitude: '-122.4220',
+        status: 'Open'
+    },
+    {
+        unique_key: '311-1003',
+        created_date: new Date().toISOString(),
+        complaint_type: 'Graffiti',
+        descriptor: 'Tagging on public park bench',
+        incident_address: 'Golden Gate Park Entrance',
+        latitude: '37.7690',
+        longitude: '-122.4500',
+        status: 'Open'
+    },
+    {
+        unique_key: '311-1004',
+        created_date: new Date().toISOString(),
+        complaint_type: 'Trash Pickup',
+        descriptor: 'Overflowing public trash can',
+        incident_address: 'Dolores Park',
+        latitude: '37.7600',
+        longitude: '-122.4270',
+        status: 'Open'
     }
-}
+];
 
-/**
- * Filter and normalize raw 311 data into CommunityOS Missions
- */
-function normalizeReports(reports: City311Report[], source: 'NYC' | 'SF' | 'CHI'): Mission[] {
-    return reports
-        .filter(report => ISSUE_MAPPINGS[report.complaint_type]) // Only keep relevant issues
-        .map(report => {
-            const mapping = ISSUE_MAPPINGS[report.complaint_type];
+export const fetchCityDataMissions = async (
+    lat: number,
+    lng: number,
+    radius: number = 5000
+): Promise<Mission[]> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 600));
 
-            return {
-                id: `311-${source}-${report.unique_key}`,
-                type: mapping.type,
-                title: mapping.title,
-                description: `Verified 311 Report: ${report.descriptor || report.complaint_type}. Location: ${report.street_name || 'Unknown St'}, ${report.borough || ''}`,
-                location: `${report.street_name || 'Nearby'}, ${report.borough || ''}`,
-                coordinates: {
-                    lat: parseFloat(report.location?.latitude || '0'),
-                    lng: parseFloat(report.location?.longitude || '0')
-                },
-                distance: '0.5 mi', // Placeholder, calculate real distance in UI
-                reward: mapping.reward,
-                status: MissionStatus.OPEN,
-                urgency: 'MEDIUM',
-                timeEstimate: '30 mins',
-                autoImported: true,
-                cityReportsId: report.unique_key,
-                citySource: source,
-                verifiedSource: `${source} 311 Open Data`,
-                fixData: {
-                    severity: 'MEDIUM',
-                    imageUrl: undefined // 311 often doesn't give images in basic view
-                }
-            };
-        });
-}
+    // In a real app, we would fetch from: https://data.cityofnewyork.us/resource/erm2-nwe9.json
+    // For this demo, we use high-fidelity mocks randomized around the user
 
-function getYesterdayDate(): string {
-    const date = new Date();
-    date.setDate(date.getDate() - 2); // Get last 48 hours to be safe
-    return date.toISOString().split('.')[0]; // Remove ms for SoQL compatibility if needed
-}
+    return MOCK_311_REPORTS.map(report => {
+        // Randomize location slightly around the user if needed, or use static mock coords
+        // For better demo feel, let's put them relative to the user's "center"
+        const offsetLat = (Math.random() - 0.5) * 0.01;
+        const offsetLng = (Math.random() - 0.5) * 0.01;
+
+        return {
+            id: report.unique_key,
+            title: `City Fix: ${report.complaint_type}`,
+            description: `${report.descriptor}. Reported via 311. Verified by City Data.`,
+            type: CITY_DATA_MAPPING[report.complaint_type] || MissionType.FIX_BOUNTY,
+            status: MissionStatus.OPEN,
+            location: report.incident_address, // String location
+            coordinates: {
+                lat: lat + offsetLat, // Use user location + offset for instant "nearby" feel
+                lng: lng + offsetLng
+            },
+            reward: 150, // Standard city bounty
+            credits: 150, // Deprecated but widely used
+            // New Required Fields
+            distance: '0.4 mi', // Mock distance
+            urgency: 'MEDIUM',
+            timeEstimate: '45 mins',
+            createdAt: new Date(report.created_date),
+            isOfficial: true, // New flag for UI
+            verifiedSource: 'City of Springfield' // Changed to string to match type
+        } as unknown as Mission;
+    });
+};

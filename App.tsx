@@ -6,6 +6,10 @@ import MissionDetail from './components/MissionDetail';
 import CreateFixReport from './components/CreateFixReport';
 import MapView from './components/MapView';
 import MissionBundleCard from './components/MissionBundleCard';
+// Phase 5: Safety Checks
+import QuickAlertButton from './components/QuickAlertButton';
+import ReportIncidentModal from './components/ReportIncidentModal';
+import CrisisOverlay from './components/CrisisOverlay';
 import Leaderboard from './components/Leaderboard';
 import LoginScreen from './components/LoginScreen';
 import CreativeStudio from './components/CreativeStudio';
@@ -13,7 +17,8 @@ import Toast, { ToastMessage } from './components/Toast';
 import HelpModal from './components/HelpModal';
 import HourTracker from './components/HourTracker';
 import { MissionCardSkeleton } from './components/Skeleton';
-import { generateLifeSkillLesson, LiveSession, decomposeComplexProject } from './services/geminiService';
+import { generateLifeSkillLesson, voiceManager, decomposeComplexProject } from './services/geminiService';
+import { HELP_CONTENT } from './services/helpContent';
 
 import SwarmOverlay from './components/SwarmOverlay';
 import { MOCK_ACTIVE_USERS } from './constants';
@@ -21,6 +26,7 @@ import { ActiveUser, UserRole } from './types';
 import { subscribeToActiveUsers, subscribeToSwarmStatus, setSwarmStatus, updateUserStatus } from './services/liveOpsService';
 import { updateProfile, getUserProfile, createUserProfile } from './services/firestoreService';
 import DirectoryView from './components/DirectoryView';
+import LocalBroadcastModal from './components/LocalBroadcastModal';
 import ProfileView from './components/ProfileView';
 import Sidebar from './components/Sidebar';
 import CounselorDashboard from './components/CounselorDashboard';
@@ -28,17 +34,20 @@ import MedimateView from './components/MedimateView';
 import AssistantView from './components/AssistantView';
 import ChatWidget from './components/ChatWidget';
 // ... existing imports ...
-import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit, Moon, Sun, Award, Search, Users, ArrowUpDown, Flame } from 'lucide-react';
+import { Map as MapIcon, User, Plus, Home, ShieldCheck, Wifi, WifiOff, Wallet, TrendingUp, Sparkles, List, Trophy, LayoutDashboard, HelpCircle, LogOut, Paintbrush, Activity, Mic, MicOff, BrainCircuit, Moon, Sun, Award, Search, Users, ArrowUpDown, Flame, Shield, Settings, Bell, Menu, X, ChevronRight, BookmarkPlus, Star, Target, ChevronDown, MapPin, Radio } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import PageTransition from './components/PageTransition';
 import WelcomeHero from './components/WelcomeHero';
 import MarathonPlanReview from './components/MarathonPlanReview';
+import OnboardingFlow from './components/Onboarding/OnboardingFlow';
 
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { getMissions, subscribeToMissions, seedMissions } from './services/firestoreService';
 import { saveOfflineMission, getOfflineMissions, syncOfflineMissions } from './services/offlineStorage';
 import { generateCertificate } from './utils/certificateExport';
+import MissionActionList from './components/Home/MissionActionList';
+import { fetchCityDataMissions } from './services/cityDataService';
 
 const App: React.FC = () => {
     // Authentication State
@@ -73,6 +82,10 @@ const App: React.FC = () => {
     // X-Factor: Swarm / Live Ops
     const [isSwarmActive, setIsSwarmActive] = useState(false);
     const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]); // Real active users
+
+    // Phase 7: Mesh Mode State
+    const [showLocalBroadcast, setShowLocalBroadcast] = useState(false);
+    const meshSignalStrength = 75; // Mock signal strength
 
     // 1. Subscribe to Swarm Status (Global)
     // 1. Subscribe to Swarm Status (Global)
@@ -111,6 +124,39 @@ const App: React.FC = () => {
         });
         return () => unsubscribe();
     }, [isAuthenticated, isDemoMode]);
+
+    // 2.1 Fetch Real City Data (Phase 3)
+    useEffect(() => {
+        const loadCityMissions = async () => {
+            // Default to SF for demo if no live location yet
+            // In real app, would use `user.location` or geolocation
+            const lat = 37.7749;
+            const lng = -122.4194;
+
+            try {
+                const cityMissions = await fetchCityDataMissions(lat, lng);
+                setMissions(prev => {
+                    // Avoid duplicates if React Strict Mode runs twice
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newMissions = cityMissions.filter(m => !existingIds.has(m.id));
+                    return [...prev, ...newMissions];
+                });
+            } catch (e) {
+                console.error("Failed to load city data", e);
+            }
+        };
+
+        // Load immediately for now
+        loadCityMissions();
+    }, []);
+
+    // 2.2 Global Voice Mode Listener
+    useEffect(() => {
+        const unsubscribe = voiceManager.onStatusChange((status) => {
+            setVoiceMode(status === 'connected' ? 'ACTIVE' : 'OFF');
+        });
+        return () => unsubscribe();
+    }, []);
 
     // 3. Track & Publish Own Location
 
@@ -168,8 +214,14 @@ const App: React.FC = () => {
     };
 
     // Strategic Track: Voice Mode (Blind Support / Teacher)
-    const [voiceMode, setVoiceMode] = useState<'OFF' | 'ACTIVE'>('OFF');
-    const liveSessionRef = useRef<LiveSession | null>(null);
+    const [voiceMode, setVoiceMode] = useState<'OFF' | 'ACTIVE'>(() =>
+        voiceManager.getStatus() === 'connected' ? 'ACTIVE' : 'OFF'
+    );
+    const liveSessionRef = useRef<any>(null); // Keep for ref compatibility if used elsewhere, but will be null
+    // Phase 5: Safety Modal
+    const [showReportModal, setShowReportModal] = useState(false);
+    // Phase 6: Crisis Mode Global State
+    const [isCrisisMode, setIsCrisisMode] = useState(false);
 
     // Auth Listener
     useEffect(() => {
@@ -293,6 +345,15 @@ const App: React.FC = () => {
         setToasts(prev => prev.filter(t => t.id !== id));
     };
 
+    // Phase 7: Handle Local Mesh Broadcast
+    const handleLocalBroadcast = (broadcast: any) => {
+        // In production, this would send the broadcast to the mesh network
+        const broadcastId = `broadcast_${Date.now()}`;
+        console.log('Local Broadcast Sent:', { ...broadcast, id: broadcastId });
+
+        addToast('success', '📡 Broadcast Sent', `Your ${broadcast.type.replaceAll('_', ' ').toLowerCase()} message was sent to ${Math.floor(meshSignalStrength / 10)} nearby nodes.`);
+    };
+
     const handleLogin = (provider?: string) => {
         // Handled by Auth Listener now
     };
@@ -332,17 +393,26 @@ const App: React.FC = () => {
     // Toggle Voice/Blind Mode (Concept 5)
     const toggleVoiceMode = async (forceOff = false) => {
         if (voiceMode === 'ACTIVE' || forceOff) {
-            liveSessionRef.current?.disconnect();
-            liveSessionRef.current = null;
-            setVoiceMode('OFF');
+            voiceManager.disconnect();
             if (!forceOff) addToast('success', 'Voice Mode Off', 'Standard interface active.');
         } else {
-            setVoiceMode('ACTIVE');
-            liveSessionRef.current = new LiveSession();
-            addToast('success', 'Voice Mode Active', 'Concept 5: Blind Support & Voice Navigation Active.');
-            await liveSessionRef.current.connect((status) => {
-                if (status === 'error') setVoiceMode('OFF');
-            }, 'BLIND_SUPPORT');
+            addToast('success', 'Voice Mode Active', 'Connecting to Gemini Live...');
+
+            // Gather Context
+            const context = {
+                user: user,
+                location: user.location,
+                activeTab: activeTab,
+                viewMode: viewMode,
+                filter: filter === 'ALL' ? undefined : filter,
+                isSwarmActive: isSwarmActive,
+                missions: filteredMissions.slice(0, 5), // Pass top 5 relevant missions to save tokens
+                activeUsersCount: activeUsers.length,
+                localTime: new Date().toLocaleTimeString(),
+                helpContent: HELP_CONTENT
+            };
+
+            await voiceManager.connect('TEACHER', null, context);
         }
     };
 
@@ -488,7 +558,40 @@ const App: React.FC = () => {
     });
 
     // ... inside App component
+    // Onboarding State
+    const [hasOnboarded, setHasOnboarded] = useState(() => {
+        return localStorage.getItem('communityos_has_onboarded') === 'true';
+    });
+
+    const handleOnboardingComplete = (data: { role: 'VOLUNTEER' | 'BENEFICIARY'; location: GeolocationPosition }) => {
+        localStorage.setItem('communityos_has_onboarded', 'true');
+        localStorage.setItem('communityos_role', data.role);
+        setHasOnboarded(true);
+
+        // Router Logic based on Role
+        if (data.role === 'BENEFICIARY') {
+            setActiveTab('FIND');
+        } else {
+            setActiveTab('HOME');
+        }
+
+        // Mock "Demo" Login for now to enable app features if we want to show full UI
+        // In a real app, this would stay unauthenticated until they sign up.
+        // For this prototype, we'll auto-login as the demo user to show the "Must-Have" experience immediately.
+        handleLogin();
+    };
+
+    if (!hasOnboarded) {
+        return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+    }
+
     if (!isAuthenticated) {
+        // Fallback if they cleared storage but are not logged in, or if we want to keep LoginScreen accessible?
+        // For "Frictionless", we want to auto-login or show guest view.
+        // Let's rely on the handleOnboardingComplete calling handleLogin for now to keep it simple and high-impact.
+        // But if they refresh and are not authenticated?
+        // We should probably auto-login if hasOnboarded is true for this prototype phase.
+        // Or just show LoginScreen if they manually logged out.
         return <LoginScreen onLogin={handleLogin} onDemoTour={handleDemoTour} />;
     }
 
@@ -577,13 +680,27 @@ const App: React.FC = () => {
                             transition={{ duration: 0.2 }}
                             className="w-full h-full flex flex-col"
                         >
+                            {activeTab === 'HOME' && (
+                                <MissionActionList
+                                    missions={filteredMissions} // Or just sortedMissions if we want all nearby
+                                    user={user}
+                                    onMissionClick={setSelectedMission}
+                                    onMarathonClick={() => setIsCreatingReport(true)}
+                                />
+                            )}
+
                             {activeTab === 'FIND' && (
                                 <div className="h-full flex flex-col p-4 w-full">
                                     <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Directory</h2>
                                     <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                        <DirectoryView resources={INITIAL_RESOURCES} onResourceClick={(r) => {
-                                            addToast('success', 'Resource Selected', r.name);
-                                        }} />
+                                        <DirectoryView
+                                            resources={INITIAL_RESOURCES}
+                                            onSelectResource={(r) => {
+                                                addToast('success', 'Resource Selected', r.name);
+                                            }}
+                                            meshMode={isSwarmActive}
+                                            meshSignalStrength={meshSignalStrength}
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -839,6 +956,54 @@ const App: React.FC = () => {
                         />
                     )
                 }
+
+                {/* Phase 5: Safety Layer */}
+                {isAuthenticated && (
+                    <>
+                        <QuickAlertButton
+                            onEmergency={() => setIsCrisisMode(true)}
+                            onReport={() => setShowReportModal(true)}
+                        />
+                        <ReportIncidentModal
+                            isOpen={showReportModal}
+                            onClose={() => setShowReportModal(false)}
+                            onSubmit={(report) => addToast('success', 'Report Filed', `Incident #${report.id.slice(-4)} submitted for triage.`)}
+                        />
+                        <CrisisOverlay
+                            isActive={isCrisisMode}
+                            onExit={() => setIsCrisisMode(false)}
+                            onEmergencyCall={() => addToast('error', '911 DIALED', 'Connecting to emergency services...')}
+                            onReportIncident={() => {
+                                setIsCrisisMode(false);
+                                setShowReportModal(true);
+                            }}
+                        />
+
+                        {/* Phase 7: Local Broadcast Modal & FAB */}
+                        {isSwarmActive && (
+                            <>
+                                <LocalBroadcastModal
+                                    onClose={() => setShowLocalBroadcast(false)}
+                                    onSend={handleLocalBroadcast}
+                                    meshSignalStrength={meshSignalStrength}
+                                    userName={user.displayName}
+                                    userId={user.id}
+                                />
+
+                                {!showLocalBroadcast && (
+                                    <button
+                                        onClick={() => setShowLocalBroadcast(true)}
+                                        className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-emerald-500 to-green-400 text-white rounded-full shadow-2xl hover:shadow-emerald-500/50 transition-all hover:scale-110 flex items-center justify-center z-40 group"
+                                        title="Broadcast to Local Mesh"
+                                    >
+                                        <Radio className="w-6 h-6 animate-pulse" />
+                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-ping"></div>
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
 
             </main>
             {/* Swarm Overlay Component */}
