@@ -2,7 +2,7 @@
 
 **A unified platform to find support, give help, and build resilient communities.**
 
-### 🚀 Live Demo: [https://community-hero-prod.web.app](https://community-hero-prod.web.app)
+## 🚀 Live Demo: [https://community-hero-prod.web.app](https://community-hero-prod.web.app)
 
 ---
 
@@ -22,18 +22,18 @@ The system follows a serverless architecture leveraging **Firebase** for backend
 
 ```mermaid
 graph TD
-    User([End User]) <--> Frontend[React PWA \n(Firebase Hosting)]
+    User([End User]) <--> Frontend["React PWA \n(Firebase Hosting)"]
     
     subgraph "Firebase Backend (Serverless)"
         Frontend <--> Auth[Authentication]
         Frontend <--> Firestore[Firestore DB]
-        Frontend <--> Functions[Cloud Functions \n(Node.js)]
+        Frontend <--> Functions["Cloud Functions \n(Node.js)"]
         Functions <--> Storage[Cloud Storage]
     end
     
     subgraph "External Services"
         Functions <--> GMaps[Google Places API]
-        Frontend <--> Gemini[Gemini Flash 1.5 API \n(Voice & AI)]
+        Frontend <--> Gemini["Gemini Flash 1.5 API \n(Voice & AI)"]
     end
 ```
 
@@ -52,9 +52,9 @@ graph LR
     end
 
     subgraph "Services Layer"
-        Places[placesService.ts \n(Google Maps Proxy)]
-        City[cityDataService.ts \n(311 & Mock Data)]
-        Gemini[geminiService.ts \n(AI Websocket)]
+        Places["placesService.ts \n(Google Maps Proxy)"]
+        City["cityDataService.ts \n(311 & Mock Data)"]
+        Gemini["geminiService.ts \n(AI Websocket)"]
         AuthService[authService.ts]
     end
 
